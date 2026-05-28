@@ -213,47 +213,100 @@ class PoseProcessor:
     # overlay video
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
- 
+
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
- 
+
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
- 
-        u_to_s_map = {u: s for s, u in path}
- 
+
+        # ❗ DTW mapping (safe version)
+        from collections import defaultdict
+        u_to_s_map = defaultdict(list)
+        for s, u in path:
+            u_to_s_map[u].append(s)
+
         cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
- 
+
+        if not cap.isOpened():
+            raise RuntimeError("Video cannot be opened")
+
+        # =========================
+        # FIX 1: safe first frame size
+        # =========================
+        ret, test_frame = cap.read()
+        if not ret:
+            raise RuntimeError("Cannot read first frame")
+
+        h, w = test_frame.shape[:2]
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+        # =========================
+        # FIX 2: fps fallback
+        # =========================
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps is None or fps < 1:
+            fps = 30
+
+        # =========================
+        # FIX 3: VideoWriter safe
+        # =========================
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
         out = cv2.VideoWriter(
             output_path,
-            cv2.VideoWriter_fourcc(*'mp4v'),
+            fourcc,
             fps,
             (w, h)
         )
- 
+
+        if not out.isOpened():
+            raise RuntimeError("VideoWriter failed (codec issue)")
+
         f_idx = 0
- 
-        while cap.isOpened():
+
+        while True:
             ret, frame = cap.read()
             if not ret:
                 break
- 
+
+            # =========================
+            # FIX 4: frame safety
+            # =========================
+            if frame is None:
+                continue
+
+            if frame.shape[-1] == 4:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+            frame = np.ascontiguousarray(frame, dtype=np.uint8)
+
             rel_idx = f_idx - start_idx
- 
+
             if 0 <= rel_idx < len(df_usr):
+
                 u_row = df_usr.iloc[rel_idx]
+
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
- 
+
                 if rel_idx in u_to_s_map:
-                    s_idx = u_to_s_map[rel_idx]
-                    c_row = self.align_to_user_space(df_std.iloc[s_idx], u_row)
-                    self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
- 
+                    s_idx = u_to_s_map[rel_idx][0]
+
+                    if s_idx < len(df_std):
+                        c_row = self.align_to_user_space(
+                            df_std.iloc[s_idx],
+                            u_row
+                        )
+                        self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
+
+            # =========================
+            # FIX 5: enforce correct format
+            # =========================
+            frame = frame.astype(np.uint8)
+
             out.write(frame)
+
             f_idx += 1
- 
+
         cap.release()
         out.release()
  
