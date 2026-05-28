@@ -155,7 +155,7 @@ if uploaded_file:
 
     options = PoseLandmarkerOptions(
         base_options=BaseOptions(
-            model_asset_path="pose_landmarker.task"
+            model_asset_path=os.path.join(os.path.dirname(__file__), "pose_landmarker.task")
         ),
         running_mode=RunningMode.VIDEO
     )
