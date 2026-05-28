@@ -239,19 +239,31 @@ class PoseProcessor:
             ret, frame = cap.read()
             if not ret:
                 break
- 
+
             rel_idx = f_idx - start_idx
- 
+
             if 0 <= rel_idx < len(df_usr):
                 u_row = df_usr.iloc[rel_idx]
+
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
- 
+
                 if rel_idx in u_to_s_map:
-                    s_idx = u_to_s_map[rel_idx]
+                    s_idx = u_to_s_map[rel_idx][0]
                     c_row = self.align_to_user_space(df_std.iloc[s_idx], u_row)
                     self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
- 
+
+            # 🔥 必加保護
+            if frame is None:
+                continue
+
+            if frame.shape[-1] == 4:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+            frame = np.ascontiguousarray(frame)
+            frame = frame.astype(np.uint8)
+
             out.write(frame)
+
             f_idx += 1
  
         cap.release()
