@@ -39,18 +39,33 @@ class PoseProcessor:
             return np.array([0.5, 0.5]), 0.2
  
     def align_to_user_space(self, coach_row, user_row):
-        c_center, c_scale = self._get_center_and_scale(coach_row)
-        u_center, u_scale = self._get_center_and_scale(user_row)
- 
-        scale_ratio = u_scale / c_scale
+
+        # center
+        c_center, _ = self._get_center_and_scale(coach_row)
+        u_center, _ = self._get_center_and_scale(user_row)
+
+        # 用「user scale」當統一標準（不要用 ratio warp）
+        _, u_scale = self._get_center_and_scale(user_row)
+
         out = coach_row.copy()
- 
+
         for i in range(11, 33):
             x_col, y_col = f"{i}_x", f"{i}_y"
+
             if x_col in out and y_col in out:
-                out[x_col] = (out[x_col] - c_center[0]) * scale_ratio + u_center[0]
-                out[y_col] = (out[y_col] - c_center[1]) * scale_ratio + u_center[1]
- 
+
+                # step 1: normalize coach to origin
+                x = out[x_col] - c_center[0]
+                y = out[y_col] - c_center[1]
+
+                # step 2: scale to user size
+                x *= u_scale
+                y *= u_scale
+
+                # step 3: shift to user center
+                out[x_col] = x + u_center[0]
+                out[y_col] = y + u_center[1]
+
         return out
  
     # =========================
