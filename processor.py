@@ -228,7 +228,7 @@ class PoseProcessor:
  
         out = cv2.VideoWriter(
             output_path,
-            cv2.VideoWriter_fourcc(*'mpv4'),
+            cv2.VideoWriter_fourcc(*'mp4v'),
             fps,
             (w, h)
         )
