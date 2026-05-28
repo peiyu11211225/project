@@ -23,6 +23,12 @@ class PoseProcessor:
         l = np.array([row.get('23_x', 0.5), row.get('23_y', 0.5)])
         r = np.array([row.get('24_x', 0.5), row.get('24_y', 0.5)])
 
+        # 處理 NaN 值 (重要！避免 NaN 傳播)
+        if pd.isna(l[0]): l[0] = 0.5
+        if pd.isna(l[1]): l[1] = 0.5
+        if pd.isna(r[0]): r[0] = 0.5
+        if pd.isna(r[1]): r[1] = 0.5
+
         center = (l + r) / 2
         width = np.linalg.norm(r - l)
 
@@ -34,7 +40,6 @@ class PoseProcessor:
             x = row.get(f"{i}_x", 0.5)
             y = row.get(f"{i}_y", 0.5)
 
-            # 處理可能出現的 NaN 值
             if pd.isna(x): x = 0.5
             if pd.isna(y): y = 0.5
 
@@ -46,22 +51,29 @@ class PoseProcessor:
 
         return out
 
-    def align_to_user_space(self, coach_row, user_row):
-        """將教練的骨架(已經正規化) 對齊到 使用者的實際畫面空間"""
-        # 1. 取得教練的 Hip Center 與 Hip Width (在正規化空間中)
+    def align_to_user_space(self, coach_row, user_row, smoothed_scale):
+        """
+        將教練的骨架(已經正規化) 對齊到 使用者的實際畫面空間
+        
+        新增參數:
+          smoothed_scale (float): 已經過平滑處理、穩定的縮放比例
+        """
+        # 1. 取得教練的 Hip Center (在正規化空間中)
         c_l = np.array([coach_row.get('23_x', 0), coach_row.get('23_y', 0)])
         c_r = np.array([coach_row.get('24_x', 0), coach_row.get('24_y', 0)])
+        # 確保NaN不影響
+        if pd.isna(c_l).any(): c_l = np.array([0,0])
+        if pd.isna(c_r).any(): c_r = np.array([0,0])
         c_center = (c_l + c_r) / 2
-        c_w = np.linalg.norm(c_r - c_l)
+        
+        # 移除 c_w 和單格 scale 的計算，直接使用傳入的 smoothed_scale
 
-        # 2. 取得使用者的 Hip Center 與 Hip Width (在原始畫面空間中)
+        # 2. 取得使用者的 Hip Center (在原始畫面空間中，用於定位)
         u_l = np.array([user_row.get('23_x', 0.5), user_row.get('23_y', 0.5)])
         u_r = np.array([user_row.get('24_x', 0.5), user_row.get('24_y', 0.5)])
+        if pd.isna(u_l).any(): u_l = np.array([0.5, 0.5])
+        if pd.isna(u_r).any(): u_r = np.array([0.5, 0.5])
         u_center = (u_l + u_r) / 2
-        u_w = np.linalg.norm(u_r - u_l)
-
-        # 計算縮放比例
-        scale = (u_w / c_w) if c_w > 1e-6 else 1.0
 
         out = {}
         for i in range(11, 33):
@@ -73,9 +85,9 @@ class PoseProcessor:
 
             pt = np.array([x, y])
 
-            # 減去教練中心點 -> 放大到使用者尺寸 -> 移到使用者畫面的中心點
+            # 🔥 核心修正：減去教練中心點 -> 用「穩定的 scale」放大到使用者尺寸 -> 移到使用者畫面的中心點
             pt = pt - c_center
-            pt = pt * scale
+            pt = pt * smoothed_scale # 使用平滑後的縮放
             pt = pt + u_center
 
             out[f"{i}_x"] = float(pt[0])
@@ -243,10 +255,48 @@ class PoseProcessor:
         return np.convolve(curve, np.ones(3) / 3, mode='same').tolist()
  
     # =========================
-    # overlay video (🔥 已修正骨架貼合邏輯)
+    # overlay video (🔥 已修正縮放忽大忽小問題)
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
+        """
+        產生覆蓋影片，解決縮放不穩定的問題。
+        """
+        # ========================================================
+        # 🔥 STEP 1: 計算穩定的縮放比例 (Scale)
+        # 忽大忽小是因為 user 的 hip_width MediaPipe 偵測不穩，需要平滑處理。
+        # ========================================================
+        
+        # 1.1 預先計算教練的基準 hip_width (在正規化空間中，通常接近 1.0)
+        c_ls = df_std[['23_x', '23_y']].values.astype(np.float32)
+        c_rs = df_std[['24_x', '24_y']].values.astype(np.float32)
+        # 用平均值取得教練在整個標準影片中的穩定寬度
+        c_w_mean = np.mean(np.linalg.norm(c_rs - c_ls, axis=1))
+        if c_w_mean < 1e-6: c_w_mean = 1.0
 
+        # 1.2 預先計算使用者每一影格的 raw hip_width (原始空間)
+        u_ls = df_usr[['23_x', '23_y']].values.astype(np.float32)
+        u_rs = df_usr[['24_x', '24_y']].values.astype(np.float32)
+        u_ws_raw = np.linalg.norm(u_rs - u_ls, axis=1)
+        
+        # 1.3 處理 NaN 值，用平均值填充以避免縮放暴走
+        if np.isnan(u_ws_raw).any():
+            valid_mean = np.nanmean(u_ws_raw)
+            if np.isnan(valid_mean): valid_mean = 0.2 # 兜底值
+            np.nan_to_num(u_ws_raw, copy=False, nan=valid_mean)
+        
+        # 1.4 🔥 核心平滑處理 (使用移動平均 Moving Average)
+        # 視窗大小 (Window Size)，視訊 FPS 而定，30fps 的話用 7~11 效果不錯
+        window_size = 9 
+        u_ws_smoothed = np.convolve(u_ws_raw, np.ones(window_size) / window_size, mode='same')
+        
+        # 1.5 計算最終平滑後的 scale array，並限制合理的縮放範圍
+        final_scales_arr = u_ws_smoothed / c_w_mean
+        # 根據經驗， scale 超過 5倍或小於 0.1倍通常是偵測錯誤，限制範圍。
+        final_scales_arr = np.clip(final_scales_arr, 0.1, 5.0)
+
+        # ========================================================
+        # STEP 2: 原有的 DTW 和影片處理邏輯
+        # ========================================================
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
 
@@ -298,15 +348,18 @@ class PoseProcessor:
                 u_row = df_usr.iloc[rel_idx]
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
 
-                # 2. 尋找對應的教練骨架並進行空間對齊後繪製 (藍色)
+                # 2. 尋找對應的教練骨架
                 if rel_idx in u_to_s_map:
                     s_idx = u_to_s_map[rel_idx][0]
 
                     if s_idx < len(df_std):
                         c_row = df_std.iloc[s_idx]
                         
-                        # 🔥 核心修正：將教練骨架轉換至目前畫面的使用者座標與尺寸空間
-                        aligned_c_row = self.align_to_user_space(c_row, u_row)
+                        # 🔥 關鍵修正：從平滑後的陣列中取用當前 user 影格的縮放比例
+                        stable_scale = final_scales_arr[rel_idx]
+                        
+                        # 將教練骨架轉換至目前畫面的使用者座標系統，並傳入平滑後的穩定 scale
+                        aligned_c_row = self.align_to_user_space(c_row, u_row, stable_scale)
                         
                         # 繪製對齊後的教練骨架
                         self.draw_skeleton(frame, aligned_c_row, (255, 0, 0), 3, w, h)
@@ -318,7 +371,7 @@ class PoseProcessor:
         out.release()
 
         # =========================
-        # 🔥 FFmpeg FIX
+        # FFmpeg FIX
         # =========================
         try:
             cmd = [
@@ -330,7 +383,7 @@ class PoseProcessor:
                 output_path
             ]
 
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             os.remove(tmp_path)
 
         except Exception as e:
