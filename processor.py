@@ -17,10 +17,11 @@ class PoseProcessor:
             (23, 25), (25, 27), (24, 26), (26, 28)
         ]
         self.coach = AICoach()
+
     def _hip_transform(self, row):
         """把 skeleton 轉到 hip-centered + normalized space"""
-        l = np.array([row['23_x'], row['23_y']])
-        r = np.array([row['24_x'], row['24_y']])
+        l = np.array([row.get('23_x', 0.5), row.get('23_y', 0.5)])
+        r = np.array([row.get('24_x', 0.5), row.get('24_y', 0.5)])
 
         center = (l + r) / 2
         width = np.linalg.norm(r - l)
@@ -33,8 +34,11 @@ class PoseProcessor:
             x = row.get(f"{i}_x", 0.5)
             y = row.get(f"{i}_y", 0.5)
 
-            pt = np.array([x, y])
+            # 處理可能出現的 NaN 值
+            if pd.isna(x): x = 0.5
+            if pd.isna(y): y = 0.5
 
+            pt = np.array([x, y])
             pt = (pt - center) / width   # ⭐ normalize
 
             out[f"{i}_x"] = pt[0]
@@ -42,49 +46,43 @@ class PoseProcessor:
 
         return out
 
-
     def align_to_user_space(self, coach_row, user_row):
-
-        # hip center (normalized space)
-        c_l = np.array([coach_row['23_x'], coach_row['23_y']])
-        c_r = np.array([coach_row['24_x'], coach_row['24_y']])
+        """將教練的骨架(已經正規化) 對齊到 使用者的實際畫面空間"""
+        # 1. 取得教練的 Hip Center 與 Hip Width (在正規化空間中)
+        c_l = np.array([coach_row.get('23_x', 0), coach_row.get('23_y', 0)])
+        c_r = np.array([coach_row.get('24_x', 0), coach_row.get('24_y', 0)])
         c_center = (c_l + c_r) / 2
-
-        u_l = np.array([user_row['23_x'], user_row['23_y']])
-        u_r = np.array([user_row['24_x'], user_row['24_y']])
-        u_center = (u_l + u_r) / 2
-
-        # hip width scale
         c_w = np.linalg.norm(c_r - c_l)
+
+        # 2. 取得使用者的 Hip Center 與 Hip Width (在原始畫面空間中)
+        u_l = np.array([user_row.get('23_x', 0.5), user_row.get('23_y', 0.5)])
+        u_r = np.array([user_row.get('24_x', 0.5), user_row.get('24_y', 0.5)])
+        u_center = (u_l + u_r) / 2
         u_w = np.linalg.norm(u_r - u_l)
 
+        # 計算縮放比例
         scale = (u_w / c_w) if c_w > 1e-6 else 1.0
 
         out = {}
-
         for i in range(11, 33):
-
             x = coach_row.get(f"{i}_x")
             y = coach_row.get(f"{i}_y")
 
-            if x is None or y is None:
+            if x is None or y is None or pd.isna(x) or pd.isna(y):
                 continue
 
             pt = np.array([x, y])
 
-            # normalize to coach hip center
+            # 減去教練中心點 -> 放大到使用者尺寸 -> 移到使用者畫面的中心點
             pt = pt - c_center
-
-            # scale to user size
             pt = pt * scale
-
-            # move to user hip center
             pt = pt + u_center
 
             out[f"{i}_x"] = float(pt[0])
             out[f"{i}_y"] = float(pt[1])
 
         return out
+
     # =========================
     # feature extraction（穩定版）
     # =========================
@@ -245,7 +243,7 @@ class PoseProcessor:
         return np.convolve(curve, np.ones(3) / 3, mode='same').tolist()
  
     # =========================
-    # overlay video
+    # overlay video (🔥 已修正骨架貼合邏輯)
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
 
@@ -272,9 +270,7 @@ class PoseProcessor:
             fps = 30
 
         tmp_path = output_path.replace(".mp4", "_tmp.mp4")
-
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-
         out = cv2.VideoWriter(tmp_path, fourcc, fps, (w, h))
 
         if not out.isOpened():
@@ -298,16 +294,22 @@ class PoseProcessor:
             rel_idx = f_idx - start_idx
 
             if 0 <= rel_idx < len(df_usr):
-
+                # 1. 繪製使用者本身的骨架 (紅色)
                 u_row = df_usr.iloc[rel_idx]
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
 
+                # 2. 尋找對應的教練骨架並進行空間對齊後繪製 (藍色)
                 if rel_idx in u_to_s_map:
                     s_idx = u_to_s_map[rel_idx][0]
 
                     if s_idx < len(df_std):
                         c_row = df_std.iloc[s_idx]
-                        self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
+                        
+                        # 🔥 核心修正：將教練骨架轉換至目前畫面的使用者座標與尺寸空間
+                        aligned_c_row = self.align_to_user_space(c_row, u_row)
+                        
+                        # 繪製對齊後的教練骨架
+                        self.draw_skeleton(frame, aligned_c_row, (255, 0, 0), 3, w, h)
 
             out.write(frame)
             f_idx += 1
@@ -316,7 +318,7 @@ class PoseProcessor:
         out.release()
 
         # =========================
-        # 🔥 FFmpeg FIX (KEY FIX)
+        # 🔥 FFmpeg FIX
         # =========================
         try:
             cmd = [
@@ -329,7 +331,6 @@ class PoseProcessor:
             ]
 
             subprocess.run(cmd, check=True)
-
             os.remove(tmp_path)
 
         except Exception as e:
@@ -348,10 +349,10 @@ class PoseProcessor:
             x = row.get(f"{i}_x")
             y = row.get(f"{i}_y")
 
-            if x is None or y is None:
+            if x is None or y is None or pd.isna(x) or pd.isna(y):
                 continue
 
-            # ⚠️ ONLY HERE convert to pixel
+            # ⚠️ 將比例座標轉為實際影像的像素座標
             px = int(np.clip(x, 0, 1) * w)
             py = int(np.clip(y, 0, 1) * h)
 
