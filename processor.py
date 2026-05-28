@@ -45,27 +45,41 @@ class PoseProcessor:
 
     def align_to_user_space(self, coach_row, user_row):
 
-        # 1. normalize both
-        c = self._hip_transform(coach_row)
-        u = self._hip_transform(user_row)
+        # hip center (normalized space)
+        c_l = np.array([coach_row['23_x'], coach_row['23_y']])
+        c_r = np.array([coach_row['24_x'], coach_row['24_y']])
+        c_center = (c_l + c_r) / 2
 
-        # 2. user anchor (original space)
         u_l = np.array([user_row['23_x'], user_row['23_y']])
         u_r = np.array([user_row['24_x'], user_row['24_y']])
         u_center = (u_l + u_r) / 2
-        u_width = np.linalg.norm(u_r - u_l)
 
-        if u_width < 1e-6:
-            u_width = 1.0
+        # hip width scale
+        c_w = np.linalg.norm(c_r - c_l)
+        u_w = np.linalg.norm(u_r - u_l)
+
+        scale = (u_w / c_w) if c_w > 1e-6 else 1.0
 
         out = {}
 
-        # 3. warp coach → user
         for i in range(11, 33):
-            x = c[f"{i}_x"]
-            y = c[f"{i}_y"]
 
-            pt = np.array([x, y]) * u_width + u_center
+            x = coach_row.get(f"{i}_x")
+            y = coach_row.get(f"{i}_y")
+
+            if x is None or y is None:
+                continue
+
+            pt = np.array([x, y])
+
+            # normalize to coach hip center
+            pt = pt - c_center
+
+            # scale to user size
+            pt = pt * scale
+
+            # move to user hip center
+            pt = pt + u_center
 
             out[f"{i}_x"] = float(pt[0])
             out[f"{i}_y"] = float(pt[1])
@@ -330,13 +344,14 @@ class PoseProcessor:
         pts = {}
 
         for i in range(11, 33):
+
             x = row.get(f"{i}_x")
             y = row.get(f"{i}_y")
 
             if x is None or y is None:
                 continue
 
-            # ⭐ 只做 safety clamp，不再 scale
+            # ⚠️ ONLY HERE convert to pixel
             px = int(np.clip(x, 0, 1) * w)
             py = int(np.clip(y, 0, 1) * h)
 
