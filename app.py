@@ -153,9 +153,12 @@ if uploaded_file:
     PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
     RunningMode = mp.tasks.vision.RunningMode
 
+    # ─── 🔥 雲端關鍵優化設定 ───
     options = PoseLandmarkerOptions(
         base_options=BaseOptions(
-            model_asset_path=os.path.join(os.path.dirname(__file__), "pose_landmarker.task")
+            model_asset_path=os.path.join(os.path.dirname(__file__), "pose_landmarker.task"),
+            # 強制指定使用 CPU 運算，徹底根除雲端的 GPU/EGL 初始化閃退錯誤
+            delegate=BaseOptions.Delegate.CPU
         ),
         running_mode=RunningMode.VIDEO
     )
@@ -179,6 +182,7 @@ if uploaded_file:
             if not ret:
                 break
 
+            # 將 OpenCV 的 BGR 轉換為 MediaPipe 影像格式
             mp_image = mp.Image(
                 image_format=mp.ImageFormat.SRGB,
                 data=frame
@@ -188,6 +192,7 @@ if uploaded_file:
                 i * (1000 / fps)
             )
 
+            # 執行偵測
             result = landmarker.detect_for_video(
                 mp_image,
                 timestamp_ms
@@ -195,44 +200,43 @@ if uploaded_file:
 
             data = {}
 
-            if result and result.pose_landmarks:
+            # ─── 🔥 修正：增強偵測結果的防禦性 ───
+            if result and result.pose_landmarks and len(result.pose_landmarks) > 0:
 
                 lms = result.pose_landmarks[0]
 
                 try:
-
                     coord = {
                         k: (lms[k].x, lms[k].y)
                         for k in range(33)
                     }
 
+                    # 計算角度 (保留你原本的邏輯)
                     data = get_full_body_angles(coord)
+                    if not isinstance(data, dict):
+                        data = {}
 
                 except:
                     data = {}
 
+                # 寫入每個關鍵點的 x, y 座標
                 for j in range(11, 33):
-
-                    data[f"{j}_x"] = lms[j].x
-                    data[f"{j}_y"] = lms[j].y
+                    data[f"{j}_x"] = float(lms[j].x)
+                    data[f"{j}_y"] = float(lms[j].y)
 
             else:
-
-                data = {
-                    f"{j}_x": 0.5
-                    for j in range(11, 33)
-                }
-
-                data.update({
-                    f"{j}_y": 0.5
-                    for j in range(11, 33)
-                })
+                # 🔥 雲端防空鎖：如果這一格沒偵測到人，填入 0.5 兜底，並確保所有欄位名稱完整存在
+                data = {}
+                for j in range(11, 33):
+                    data[f"{j}_x"] = 0.5
+                    data[f"{j}_y"] = 0.5
 
             records.append(data)
 
             i += 1
 
-            if i % 10 == 0:
+            # 更新 Streamlit 進度條
+            if i % 10 == 0 and total_frames > 0:
                 prog.progress(
                     min(i / total_frames, 1.0)
                 )
