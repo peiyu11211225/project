@@ -17,54 +17,55 @@ class PoseProcessor:
             (23, 25), (25, 27), (24, 26), (26, 28)
         ]
         self.coach = AICoach()
- 
-    # =========================
-    # 空間對齊
-    # =========================
-    def _get_center_and_scale(self, df_row):
-        try:
-            hip_l = np.array([df_row['23_x'], df_row['23_y']])
-            hip_r = np.array([df_row['24_x'], df_row['24_y']])
-            center = (hip_l + hip_r) / 2
- 
-            sh_l = np.array([df_row['11_x'], df_row['11_y']])
-            sh_r = np.array([df_row['12_x'], df_row['12_y']])
- 
-            scale = (np.linalg.norm(sh_l - hip_l) +
-                     np.linalg.norm(sh_r - hip_r)) / 2
- 
-            return center, max(scale, 0.01)
- 
-        except:
-            return np.array([0.5, 0.5]), 0.2
- 
     def align_to_user_space(self, coach_row, user_row):
 
-        # center
-        c_center, _ = self._get_center_and_scale(coach_row)
-        u_center, _ = self._get_center_and_scale(user_row)
+        # =========================
+        # 1. hip center
+        # =========================
+        c_l = np.array([coach_row['23_x'], coach_row['23_y']])
+        c_r = np.array([coach_row['24_x'], coach_row['24_y']])
+        c_center = (c_l + c_r) / 2
 
-        # 用「user scale」當統一標準（不要用 ratio warp）
-        _, u_scale = self._get_center_and_scale(user_row)
+        u_l = np.array([user_row['23_x'], user_row['23_y']])
+        u_r = np.array([user_row['24_x'], user_row['24_y']])
+        u_center = (u_l + u_r) / 2
 
+        # =========================
+        # 2. stable scale (hip width ONLY)
+        # =========================
+        c_width = np.linalg.norm(c_r - c_l)
+        u_width = np.linalg.norm(u_r - u_l)
+
+        if c_width < 1e-6:
+            scale = 1.0
+        else:
+            scale = u_width / c_width
+
+        # =========================
+        # 3. transform
+        # =========================
         out = coach_row.copy()
 
         for i in range(11, 33):
-            x_col, y_col = f"{i}_x", f"{i}_y"
+            x = out.get(f"{i}_x")
+            y = out.get(f"{i}_y")
 
-            if x_col in out and y_col in out:
+            if x is None or y is None:
+                continue
 
-                # step 1: normalize coach to origin
-                x = out[x_col] - c_center[0]
-                y = out[y_col] - c_center[1]
+            pt = np.array([x, y])
 
-                # step 2: scale to user size
-                x *= u_scale
-                y *= u_scale
+            # step1: move coach to origin (hip center)
+            pt = pt - c_center
 
-                # step 3: shift to user center
-                out[x_col] = x + u_center[0]
-                out[y_col] = y + u_center[1]
+            # step2: scale to user size
+            pt = pt * scale
+
+            # step3: move to user hip center
+            pt = pt + u_center
+
+            out[f"{i}_x"] = float(pt[0])
+            out[f"{i}_y"] = float(pt[1])
 
         return out
  
