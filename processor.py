@@ -6,7 +6,6 @@ import subprocess
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from ai_coach import AICoach
-from collections import defaultdict
 
 class PoseProcessor:
 
@@ -18,85 +17,60 @@ class PoseProcessor:
         ]
         self.coach = AICoach()
 
-    def _hip_transform(self, row):
-        """把 skeleton 轉到 hip-centered + normalized space"""
-        l = np.array([row.get('23_x', 0.5), row.get('23_y', 0.5)])
-        r = np.array([row.get('24_x', 0.5), row.get('24_y', 0.5)])
+    # =========================
+    # 空間對齊（雲端魯棒增強版）
+    # =========================
+    def _get_center_and_scale(self, df_row):
+        """計算單影格的中心點與骨架長度，並嚴格處理雲端資料異常"""
+        try:
+            # 雲端常有 NaN 或 None，先取出並給予安全預設
+            def get_val(col, default=0.5):
+                val = df_row.get(col, default)
+                return default if pd.isna(val) or val == 0 else float(val)
 
-        # 處理 NaN 值 (重要！避免 NaN 傳播)
-        if pd.isna(l[0]): l[0] = 0.5
-        if pd.isna(l[1]): l[1] = 0.5
-        if pd.isna(r[0]): r[0] = 0.5
-        if pd.isna(r[1]): r[1] = 0.5
+            hip_l = np.array([get_val('23_x'), get_val('23_y')])
+            hip_r = np.array([get_val('24_x'), get_val('24_y')])
+            center = (hip_l + hip_r) / 2
 
-        center = (l + r) / 2
-        width = np.linalg.norm(r - l)
+            sh_l = np.array([get_val('11_x'), get_val('11_y')])
+            sh_r = np.array([get_val('12_x'), get_val('12_y')])
 
-        if width < 1e-6:
-            width = 1.0
+            # 計算肩膀到髖關節的軀幹長度作為 Scale 基準
+            scale = (np.linalg.norm(sh_l - hip_l) + np.linalg.norm(sh_r - hip_r)) / 2
 
-        out = {}
+            # 如果算出來太誇張或流失，給予安全兜底
+            if scale < 0.001 or np.isnan(scale):
+                return center, 0.2
+            return center, scale
+
+        except Exception as e:
+            # 雲端防崩潰安全鎖
+            return np.array([0.5, 0.5]), 0.2
+
+    def align_to_user_space(self, coach_row, user_row, current_scale_ratio):
+        """將教練的骨架對齊到使用者的實際畫面空間（使用平滑後的縮放比）"""
+        c_center, _ = self._get_center_and_scale(coach_row)
+        u_center, _ = self._get_center_and_scale(user_row)
+
+        # 這裡直接沿用外部傳入、經過全局濾波後的平滑穩定 scale_ratio
+        out = coach_row.copy()
+
         for i in range(11, 33):
-            x = row.get(f"{i}_x", 0.5)
-            y = row.get(f"{i}_y", 0.5)
-
-            if pd.isna(x): x = 0.5
-            if pd.isna(y): y = 0.5
-
-            pt = np.array([x, y])
-            pt = (pt - center) / width   # ⭐ normalize
-
-            out[f"{i}_x"] = pt[0]
-            out[f"{i}_y"] = pt[1]
-
-        return out
-
-    def align_to_user_space(self, coach_row, user_row, smoothed_scale):
-        """
-        將教練的骨架(已經正規化) 對齊到 使用者的實際畫面空間
-        
-        新增參數:
-          smoothed_scale (float): 已經過平滑處理、穩定的縮放比例
-        """
-        # 1. 取得教練的 Hip Center (在正規化空間中)
-        c_l = np.array([coach_row.get('23_x', 0), coach_row.get('23_y', 0)])
-        c_r = np.array([coach_row.get('24_x', 0), coach_row.get('24_y', 0)])
-        # 確保NaN不影響
-        if pd.isna(c_l).any(): c_l = np.array([0,0])
-        if pd.isna(c_r).any(): c_r = np.array([0,0])
-        c_center = (c_l + c_r) / 2
-        
-        # 移除 c_w 和單格 scale 的計算，直接使用傳入的 smoothed_scale
-
-        # 2. 取得使用者的 Hip Center (在原始畫面空間中，用於定位)
-        u_l = np.array([user_row.get('23_x', 0.5), user_row.get('23_y', 0.5)])
-        u_r = np.array([user_row.get('24_x', 0.5), user_row.get('24_y', 0.5)])
-        if pd.isna(u_l).any(): u_l = np.array([0.5, 0.5])
-        if pd.isna(u_r).any(): u_r = np.array([0.5, 0.5])
-        u_center = (u_l + u_r) / 2
-
-        out = {}
-        for i in range(11, 33):
-            x = coach_row.get(f"{i}_x")
-            y = coach_row.get(f"{i}_y")
-
-            if x is None or y is None or pd.isna(x) or pd.isna(y):
-                continue
-
-            pt = np.array([x, y])
-
-            # 🔥 核心修正：減去教練中心點 -> 用「穩定的 scale」放大到使用者尺寸 -> 移到使用者畫面的中心點
-            pt = pt - c_center
-            pt = pt * smoothed_scale # 使用平滑後的縮放
-            pt = pt + u_center
-
-            out[f"{i}_x"] = float(pt[0])
-            out[f"{i}_y"] = float(pt[1])
+            x_col, y_col = f"{i}_x", f"{i}_y"
+            if x_col in out and y_col in out:
+                # 排除 NaN 與無效偵測點
+                val_x = out[x_col]
+                val_y = out[y_col]
+                if pd.isna(val_x) or pd.isna(val_y):
+                    continue
+                
+                out[x_col] = (float(val_x) - c_center[0]) * current_scale_ratio + u_center[0]
+                out[y_col] = (float(val_y) - c_center[1]) * current_scale_ratio + u_center[1]
 
         return out
 
     # =========================
-    # feature extraction（穩定版）
+    # feature extraction
     # =========================
     def extract_features(self, df):
         feats = []
@@ -127,7 +101,7 @@ class PoseProcessor:
  
                 feats.append([
                     angle / np.pi,
-                    np.tanh(speed * 5),  # 正規化速度
+                    np.tanh(speed * 5),
                     height
                 ])
  
@@ -146,41 +120,27 @@ class PoseProcessor:
  
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
  
-        joint_weights = {
-            0: 1.0,
-            1: 1.5,
-            2: 1.2
-        }
- 
+        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2}
         path_scores = []
  
         for s, u in path:
- 
             diff = np.abs(feat_std[s] - feat_usr[u])
- 
             weighted_error = (
                 diff[0] * joint_weights[0] +
                 diff[1] * joint_weights[1] +
                 diff[2] * joint_weights[2]
             )
- 
             score = 100 * np.exp(-2.0 * weighted_error)
             path_scores.append(score)
  
         path_scores = np.array(path_scores)
  
-        # =========================
-        # trim DTW boundary noise
-        # =========================
         n = len(path_scores)
         trim = int(n * 0.05)
  
         if n > 20:
             path_scores = path_scores[trim:n - trim]
  
-        # =========================
-        # FINAL SCORE
-        # =========================
         mean = np.mean(path_scores)
         p50 = np.percentile(path_scores, 50)
         p25 = np.percentile(path_scores, 25)
@@ -205,9 +165,6 @@ class PoseProcessor:
         if worst < 40:
             final_score -= 5
  
-        # =========================
-        # AICoach penalty
-        # =========================
         feedback, overall, penalty = self.coach.generate_feedback(
             feat_std, feat_usr, path, None, final_score
         )
@@ -228,7 +185,7 @@ class PoseProcessor:
         }
  
     # =========================
-    # curve（和評分一致）
+    # curve
     # =========================
     def compute_similarity_curve(self, df_std, df_usr):
  
@@ -255,166 +212,129 @@ class PoseProcessor:
         return np.convolve(curve, np.ones(3) / 3, mode='same').tolist()
  
     # =========================
-    # overlay video (🔥 已修正縮放忽大忽小問題)
+    # overlay video (🔥 雲端專用：預防縮放失效與抖動版)
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
-        """
-        產生覆蓋影片，解決縮放不穩定的問題。
-        """
-        # ========================================================
-        # 🔥 STEP 1: 計算穩定的縮放比例 (Scale)
-        # 忽大忽小是因為 user 的 hip_width MediaPipe 偵測不穩，需要平滑處理。
-        # ========================================================
-        
-        # 1.1 預先計算教練的基準 hip_width (在正規化空間中，通常接近 1.0)
-        c_ls = df_std[['23_x', '23_y']].values.astype(np.float32)
-        c_rs = df_std[['24_x', '24_y']].values.astype(np.float32)
-        # 用平均值取得教練在整個標準影片中的穩定寬度
-        c_w_mean = np.mean(np.linalg.norm(c_rs - c_ls, axis=1))
-        if c_w_mean < 1e-6: c_w_mean = 1.0
-
-        # 1.2 預先計算使用者每一影格的 raw hip_width (原始空間)
-        u_ls = df_usr[['23_x', '23_y']].values.astype(np.float32)
-        u_rs = df_usr[['24_x', '24_y']].values.astype(np.float32)
-        u_ws_raw = np.linalg.norm(u_rs - u_ls, axis=1)
-        
-        # 1.3 處理 NaN 值，用平均值填充以避免縮放暴走
-        if np.isnan(u_ws_raw).any():
-            valid_mean = np.nanmean(u_ws_raw)
-            if np.isnan(valid_mean): valid_mean = 0.2 # 兜底值
-            np.nan_to_num(u_ws_raw, copy=False, nan=valid_mean)
-        
-        # 1.4 🔥 核心平滑處理 (使用移動平均 Moving Average)
-        # 視窗大小 (Window Size)，視訊 FPS 而定，30fps 的話用 7~11 效果不錯
-        window_size = 9 
-        u_ws_smoothed = np.convolve(u_ws_raw, np.ones(window_size) / window_size, mode='same')
-        
-        # 1.5 計算最終平滑後的 scale array，並限制合理的縮放範圍
-        final_scales_arr = u_ws_smoothed / c_w_mean
-        # 根據經驗， scale 超過 5倍或小於 0.1倍通常是偵測錯誤，限制範圍。
-        final_scales_arr = np.clip(final_scales_arr, 0.1, 5.0)
-
-        # ========================================================
-        # STEP 2: 原有的 DTW 和影片處理邏輯
-        # ========================================================
+ 
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
-
+ 
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
-
-        u_to_s_map = defaultdict(list)
-        for s, u in path:
-            u_to_s_map[u].append(s)
-
+        u_to_s_map = {u: s for s, u in path}
+ 
         cap = cv2.VideoCapture(video_path)
-
-        ret, frame0 = cap.read()
-        if not ret:
-            raise RuntimeError("Cannot read video")
-
-        h, w = frame0.shape[:2]
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if not fps or fps < 1:
-            fps = 30
-
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+ 
+        # 雲端常因編碼器缺失產生 0kb 損壞影片，故先寫入臨時檔，最後以 FFmpeg 統一轉碼
         tmp_path = output_path.replace(".mp4", "_tmp.mp4")
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(tmp_path, fourcc, fps, (w, h))
-
-        if not out.isOpened():
-            raise RuntimeError("VideoWriter failed (codec issue)")
+        out = cv2.VideoWriter(
+            tmp_path,
+            cv2.VideoWriter_fourcc(*'mp4v'),
+            fps,
+            (w, h)
+        )
+ 
+        # ─── 🔥 雲端核心修正：全局 Scale 平滑化 ───
+        # 在進入迴圈渲染前，一次性將整段影片的 raw 縮放比算出來，進行移動平均平滑
+        raw_ratios = []
+        for u_idx in range(len(df_usr)):
+            if u_idx in u_to_s_map:
+                s_idx = u_to_s_map[u_idx]
+                _, c_scale = self._get_center_and_scale(df_std.iloc[s_idx])
+                _, u_scale = self._get_center_and_scale(df_usr.iloc[u_idx])
+                raw_ratios.append(u_scale / c_scale)
+            else:
+                raw_ratios.append(1.0)
+        
+        raw_ratios = np.array(raw_ratios, dtype=np.float32)
+        # 用一個 9 影格的時間視窗平滑化比例，消除雲端雜訊引起的忽大忽小
+        window_size = 9
+        if len(raw_ratios) > window_size:
+            smoothed_ratios = np.convolve(raw_ratios, np.ones(window_size)/window_size, mode='same')
+            # 邊緣補償修復
+            half = window_size // 2
+            smoothed_ratios[:half] = raw_ratios[:half]
+            smoothed_ratios[-half:] = raw_ratios[-half:]
+        else:
+            smoothed_ratios = raw_ratios
+        # ──────────────────────────────────────────
 
         f_idx = 0
-
-        while True:
+ 
+        while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
-
-            if frame is None:
-                continue
-
-            if frame.shape[-1] == 4:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-
-            frame = np.ascontiguousarray(frame, dtype=np.uint8)
-
+ 
             rel_idx = f_idx - start_idx
-
+ 
             if 0 <= rel_idx < len(df_usr):
-                # 1. 繪製使用者本身的骨架 (紅色)
                 u_row = df_usr.iloc[rel_idx]
+                # 畫使用者骨架
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
-
-                # 2. 尋找對應的教練骨架
+ 
                 if rel_idx in u_to_s_map:
-                    s_idx = u_to_s_map[rel_idx][0]
-
-                    if s_idx < len(df_std):
-                        c_row = df_std.iloc[s_idx]
-                        
-                        # 🔥 關鍵修正：從平滑後的陣列中取用當前 user 影格的縮放比例
-                        stable_scale = final_scales_arr[rel_idx]
-                        
-                        # 將教練骨架轉換至目前畫面的使用者座標系統，並傳入平滑後的穩定 scale
-                        aligned_c_row = self.align_to_user_space(c_row, u_row, stable_scale)
-                        
-                        # 繪製對齊後的教練骨架
-                        self.draw_skeleton(frame, aligned_c_row, (255, 0, 0), 3, w, h)
-
+                    s_idx = u_to_s_map[rel_idx]
+                    
+                    # 取得當前影格平滑過後的穩定縮放比
+                    current_ratio = float(smoothed_ratios[rel_idx])
+                    
+                    # 將對齊計算與平滑比例打包傳入
+                    c_row = self.align_to_user_space(df_std.iloc[s_idx], u_row, current_ratio)
+                    
+                    # 畫教練骨架
+                    self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
+ 
             out.write(frame)
             f_idx += 1
-
+ 
         cap.release()
         out.release()
 
-        # =========================
-        # FFmpeg FIX
-        # =========================
+        # ─── 🔥 H.264 雲端影音編碼轉換 ───
+        # 確保網頁前端、手機、瀏覽器能順利播放此影片
         try:
             cmd = [
-                "ffmpeg",
-                "-y",
+                "ffmpeg", "-y",
                 "-i", tmp_path,
                 "-vcodec", "libx264",
                 "-pix_fmt", "yuv420p",
                 output_path
             ]
-
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            os.remove(tmp_path)
-
-        except Exception as e:
-            # fallback：直接用 tmp
-            os.rename(tmp_path, output_path)
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except:
+            if os.path.exists(tmp_path):
+                os.rename(tmp_path, output_path)
  
     # =========================
     # draw skeleton
     # =========================
     def draw_skeleton(self, frame, row, color, thickness, w, h):
-
         pts = {}
-
+ 
         for i in range(11, 33):
-
-            x = row.get(f"{i}_x")
-            y = row.get(f"{i}_y")
-
-            if x is None or y is None or pd.isna(x) or pd.isna(y):
-                continue
-
-            # ⚠️ 將比例座標轉為實際影像的像素座標
-            px = int(np.clip(x, 0, 1) * w)
-            py = int(np.clip(y, 0, 1) * h)
-
-            pts[i] = (px, py)
-
+            x_col, y_col = f"{i}_x", f"{i}_y"
+            if x_col in row and y_col in row:
+                val_x = row[x_col]
+                val_y = row[y_col]
+                
+                # 嚴格過濾雲端常見的 NaN 或是未偵測到的 0 值
+                if pd.isna(val_x) or pd.isna(val_y) or (val_x == 0 and val_y == 0):
+                    continue
+                    
+                pts[i] = (
+                    int(np.clip(float(val_x), 0, 1) * w),
+                    int(np.clip(float(val_y), 0, 1) * h)
+                )
+ 
         for a, b in self.CONNECTIONS:
             if a in pts and b in pts:
                 cv2.line(frame, pts[a], pts[b], color, thickness)
-
+ 
         for p in pts.values():
             cv2.circle(frame, p, thickness + 1, color, -1)
  
@@ -422,7 +342,6 @@ class PoseProcessor:
     # detect action
     # =========================
     def detect_action_range(self, df):
- 
         try:
             wx = df['16_x'].values
             wy = df['16_y'].values
@@ -433,7 +352,6 @@ class PoseProcessor:
             )
  
             peak = int(np.argmax(speed))
- 
             start_th = np.percentile(speed, 15)
             end_th = np.percentile(speed, 10)
  
