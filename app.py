@@ -320,7 +320,7 @@ if uploaded_file:
 
                 st.subheader("🎥 動作影片")
 
-                output_path = "overlay_output.avi"
+                output_path = "overlay_output.mp4"
 
                 with st.spinner("生成影片中..."):
 
