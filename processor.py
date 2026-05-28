@@ -17,58 +17,60 @@ class PoseProcessor:
             (23, 25), (25, 27), (24, 26), (26, 28)
         ]
         self.coach = AICoach()
-    def align_to_user_space(self, coach_row, user_row):
+    def _hip_transform(self, row):
+        """把 skeleton 轉到 hip-centered + normalized space"""
+        l = np.array([row['23_x'], row['23_y']])
+        r = np.array([row['24_x'], row['24_y']])
 
-        # =========================
-        # 1. hip center
-        # =========================
-        c_l = np.array([coach_row['23_x'], coach_row['23_y']])
-        c_r = np.array([coach_row['24_x'], coach_row['24_y']])
-        c_center = (c_l + c_r) / 2
+        center = (l + r) / 2
+        width = np.linalg.norm(r - l)
 
-        u_l = np.array([user_row['23_x'], user_row['23_y']])
-        u_r = np.array([user_row['24_x'], user_row['24_y']])
-        u_center = (u_l + u_r) / 2
+        if width < 1e-6:
+            width = 1.0
 
-        # =========================
-        # 2. stable scale (hip width ONLY)
-        # =========================
-        c_width = np.linalg.norm(c_r - c_l)
-        u_width = np.linalg.norm(u_r - u_l)
-
-        if c_width < 1e-6:
-            scale = 1.0
-        else:
-            scale = u_width / c_width
-
-        # =========================
-        # 3. transform
-        # =========================
-        out = coach_row.copy()
-
+        out = {}
         for i in range(11, 33):
-            x = out.get(f"{i}_x")
-            y = out.get(f"{i}_y")
-
-            if x is None or y is None:
-                continue
+            x = row.get(f"{i}_x", 0.5)
+            y = row.get(f"{i}_y", 0.5)
 
             pt = np.array([x, y])
 
-            # step1: move coach to origin (hip center)
-            pt = pt - c_center
+            pt = (pt - center) / width   # ⭐ normalize
 
-            # step2: scale to user size
-            pt = pt * scale
+            out[f"{i}_x"] = pt[0]
+            out[f"{i}_y"] = pt[1]
 
-            # step3: move to user hip center
-            pt = pt + u_center
+        return out
+
+
+    def align_to_user_space(self, coach_row, user_row):
+
+        # 1. normalize both
+        c = self._hip_transform(coach_row)
+        u = self._hip_transform(user_row)
+
+        # 2. user anchor (original space)
+        u_l = np.array([user_row['23_x'], user_row['23_y']])
+        u_r = np.array([user_row['24_x'], user_row['24_y']])
+        u_center = (u_l + u_r) / 2
+        u_width = np.linalg.norm(u_r - u_l)
+
+        if u_width < 1e-6:
+            u_width = 1.0
+
+        out = {}
+
+        # 3. warp coach → user
+        for i in range(11, 33):
+            x = c[f"{i}_x"]
+            y = c[f"{i}_y"]
+
+            pt = np.array([x, y]) * u_width + u_center
 
             out[f"{i}_x"] = float(pt[0])
             out[f"{i}_y"] = float(pt[1])
 
         return out
- 
     # =========================
     # feature extraction（穩定版）
     # =========================
@@ -324,21 +326,26 @@ class PoseProcessor:
     # draw skeleton
     # =========================
     def draw_skeleton(self, frame, row, color, thickness, w, h):
- 
+
         pts = {}
- 
+
         for i in range(11, 33):
-            if f"{i}_x" in row and f"{i}_y" in row:
-                if row[f"{i}_x"] != 0 and row[f"{i}_y"] != 0:
-                    pts[i] = (
-                        int(row[f"{i}_x"] * w),
-                        int(row[f"{i}_y"] * h)
-                    )
- 
+            x = row.get(f"{i}_x")
+            y = row.get(f"{i}_y")
+
+            if x is None or y is None:
+                continue
+
+            # ⭐ 只做 safety clamp，不再 scale
+            px = int(np.clip(x, 0, 1) * w)
+            py = int(np.clip(y, 0, 1) * h)
+
+            pts[i] = (px, py)
+
         for a, b in self.CONNECTIONS:
             if a in pts and b in pts:
                 cv2.line(frame, pts[a], pts[b], color, thickness)
- 
+
         for p in pts.values():
             cv2.circle(frame, p, thickness + 1, color, -1)
  
