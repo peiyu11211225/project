@@ -56,13 +56,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("🏹\n高遠球\n正拍"):
-        # 1. 取得 app.py 所在的資料夾絕對路徑
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # 2. 組合出 pages/analyzer.py 的絕對路徑
-        target_page = os.path.join(current_dir, "pages", "analyzer.py")
-        
-        # 3. 讓 Streamlit 跳轉到這個絕對路徑
-        st.switch_page(target_page)
+        st.switch_page("pages/1_analyzer.py")
 
 with col2:
     if st.button("🔄\n高遠球\n反拍"):
