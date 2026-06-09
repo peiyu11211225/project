@@ -170,7 +170,7 @@ if uploaded_file:
     # ─── 🔥 雲端關鍵優化設定 ───
     options = PoseLandmarkerOptions(
         base_options=BaseOptions(
-            model_asset_path=os.path.join(os.path.dirname(__file__), "pose_landmarker.task"),
+            model_asset_path=os.path.join(project_root, "pose_landmarker.task"),
             # 強制指定使用 CPU 運算，徹底根除雲端的 GPU/EGL 初始化閃退錯誤
             delegate=BaseOptions.Delegate.CPU
         ),
