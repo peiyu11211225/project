@@ -1,12 +1,5 @@
 import os
 import streamlit as st
-
-# 讓網頁直接印出它到底看到了什麼
-st.write("目前根目錄有的東西：", os.listdir("."))
-if os.path.exists("pages"):
-    st.write("pages 裡面有的東西：", os.listdir("pages"))
-elif os.path.exists("Pages"):
-    st.write("Pages (大寫) 裡面有的東西：", os.listdir("Pages"))
     
 st.set_page_config(
     page_title="🏸 AI 羽球教練",
