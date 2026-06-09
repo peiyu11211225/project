@@ -6,6 +6,20 @@ import pandas as pd
 import tempfile
 import os
 
+import sys
+
+# 1. 精準取得專案根目錄的絕對路徑
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+
+# 2. 【核心修改】直接把根目錄塞到搜尋路徑的最前面（權限最高）
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)  # 使用 insert(0, ...) 確保優先被看見
+
+# 3. 順便也把 pages 資料夾本身也塞進去，雙重保險
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 from pose_utils import get_full_body_angles
 from processor import PoseProcessor
 from ai_coach import AICoach
