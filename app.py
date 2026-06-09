@@ -10,12 +10,7 @@ st.set_page_config(
 # CSS
 # =========================
 st.markdown("""
-<style>
-/* 🎯 這行只會拔掉 pages 的檔案名字，不會動到你寫的按鈕和上傳元件 */
-[data-testid="stSidebarNav"] {
-    display: none !important;
-} 
-            
+<style>     
 /* 卡片按鈕 */
 div[data-testid="column"] .stButton > button {
     width: 100%;
