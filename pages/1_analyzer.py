@@ -128,7 +128,7 @@ def show_help_dialog():
 # =========================
 with st.sidebar:
 
-    if st.button("🏠 返回首頁", use_container_width=True):
+    if st.button("🏠 返回首頁", use_container_width=False):
         st.switch_page("app.py")
 
     if st.button("📘 使用說明", use_container_width=False):
