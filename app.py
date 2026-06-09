@@ -9,34 +9,6 @@ st.set_page_config(
 # =========================
 # CSS
 # =========================
-st.markdown("""
-<style>
-/* 卡片按鈕 */
-div[data-testid="column"] .stButton > button {
-    width: 100%;
-    height: 140px;
-    border-radius: 16px;
-    border: 2px solid #c9dcea;
-    background: #f0f7fc;
-    color: #1a3a4f;
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.6;
-    cursor: pointer;
-    transition: background 0.18s, transform 0.08s, box-shadow 0.18s;
-    box-shadow: 0 3px 10px rgba(80,130,170,0.12);
-    white-space: pre-wrap;
-}
-div[data-testid="column"] .stButton > button:hover {
-    background: #d6eaf7;
-    box-shadow: 0 6px 18px rgba(80,130,170,0.22);
-    transform: translateY(-2px);
-}
-div[data-testid="column"] .stButton > button:active {
-    transform: translateY(1px);
-}
-</style>
-""", unsafe_allow_html=True)
 
 # =========================
 # 主頁
