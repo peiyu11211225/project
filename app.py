@@ -1,8 +1,13 @@
+import os
 import streamlit as st
 
-st.write(st.runtime.scriptrunner.script_run_context.get_script_run_ctx())
+st.write("cwd =", os.getcwd())
 
-
+if os.path.exists("pages"):
+    st.write("pages內容：", os.listdir("pages"))
+else:
+    st.write("沒有 pages 資料夾")
+    
 st.set_page_config(
     page_title="🏸 AI 羽球教練",
     layout="wide"
