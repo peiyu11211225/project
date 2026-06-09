@@ -7,7 +7,7 @@ if os.path.exists("pages"):
     st.write("pages內容：", os.listdir("pages"))
 else:
     st.write("沒有 pages 資料夾")
-    
+
 import streamlit as st
 
 st.set_page_config(
@@ -58,7 +58,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("🏹\n高遠球\n正拍"):
-        st.switch_page("pages/analyzer.py")
+        st.switch_page("pages/analyzer")
 
 with col2:
     if st.button("🔄\n高遠球\n反拍"):
