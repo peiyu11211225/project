@@ -40,6 +40,12 @@ st.title("🏸 AI羽球教練 : 揮拍動作診斷平台")
 # =========================
 st.markdown("""
 <style>
+            
+/* 🎯 這行只會拔掉 pages 的檔案名字，不會動到你寫的按鈕和上傳元件 */
+[data-testid="stSidebarNav"] {
+    display: none !important;
+} 
+            
 video {
     max-width: 800px !important;
     max-height: 600px !important;
