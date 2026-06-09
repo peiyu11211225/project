@@ -39,10 +39,7 @@ st.title("🏸 AI羽球教練 : 揮拍動作診斷平台")
 # CSS
 # =========================
 st.markdown("""
-<style>
-if st.button("🏠 返回首頁", use_container_width=True):
-        st.switch_page("app.py")
-            
+<style>     
 /* 🎯 這行只會拔掉 pages 的檔案名字，不會動到你寫的按鈕和上傳元件 */
 [data-testid="stSidebarNav"] {
     display: none !important;
@@ -130,6 +127,9 @@ def show_help_dialog():
 # Sidebar
 # =========================
 with st.sidebar:
+
+    if st.button("🏠 返回首頁", use_container_width=True):
+        st.switch_page("app.py")
 
     if st.button("📘 使用說明", use_container_width=False):
         show_help_dialog()
