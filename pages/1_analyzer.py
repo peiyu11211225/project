@@ -298,11 +298,11 @@ if uploaded_file:
         # -------------------------
         # 標準動作
         # -------------------------
-        if os.path.exists("standard_swing.csv"):
+        csv_path = os.path.join(current_dir, "standard_swing.csv")
 
-            df_std_action = pd.read_csv(
-                "standard_swing.csv"
-            )
+        if os.path.exists(csv_path):
+
+            df_std_action = pd.read_csv(csv_path)
 
             score, stats = (
                 proc.calculate_auto_similarity(
