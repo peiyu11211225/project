@@ -48,8 +48,11 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("🏹\n高遠球\n正拍"):
-        st.switch_page("pages/1_overhead_clear.py")
-
+        st.switch_page("ai_coach")
+        st.switch_page("analyzer")
+        st.switch_page("processor")
+        st.switch_page("record_stander")
+        
 with col2:
     if st.button("🔄\n高遠球\n反拍"):
         st.switch_page("pages/2_overhead_clear_bh.py")
