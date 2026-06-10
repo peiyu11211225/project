@@ -7,6 +7,7 @@ from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from ai_coach import AICoach
 from pages.pose_utils import get_full_body_angles
+from ai_coach import AICoach
 
 class PoseProcessor:
 
