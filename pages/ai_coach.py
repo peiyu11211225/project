@@ -17,8 +17,8 @@ class AICoach:
         }
 
         # threshold
-        self.good_threshold = 0.16
-        self.bad_threshold = 0.2
+        self.good_threshold = 0.20
+        self.bad_threshold = 0.22
 
         # 教練扣分機制
         self.phase_penalty = {
@@ -29,8 +29,8 @@ class AICoach:
 
         # 收拍放寬係數（收拍容易被遮住，誤判率高，故大幅放寬）
         self.relaxed_factor = {
-            "prep": 1.0,
-            "impact": 1.0,
+            "prep": 1.1,
+            "impact": 1.1,
             "follow": 1.8   # 原本 1.35，調高放寬收拍判定
         }
 
