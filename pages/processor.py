@@ -190,7 +190,7 @@ class PoseProcessor:
         feedback, overall, penalty = self.coach.generate_feedback(
             feat_std, feat_usr, path, None, final_score
         )
- 
+        penalty = 10
         final_score = final_score - penalty
         final_score = float(np.clip(final_score, 0, 100))
  
