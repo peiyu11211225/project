@@ -112,23 +112,27 @@ def show_help_dialog():
         st.error(f"找不到影片！預期路徑：{video_path}")
         return
 
-    # 讀取影片的二進位資料並轉為網頁可讀的 base64 格式
+    # 讀取影片並轉為 base64 格式
     import base64
     with open(video_path, "rb") as f:
         video_bytes = f.read()
     video_base64 = base64.b64encode(video_bytes).decode()
 
-    # 使用 HTML5 和 JavaScript 控制影片跳轉秒數
+    # 優化後的 HTML，加上了 max-height 限制影片高度
     html_code = f"""
-    <video id="my-video" width="100%" controls autoplay muted>
-        <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
-        您的瀏覽器不支援此影片格式。
-    </video>
+    <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center;">
+        <video id="my-video" style="max-width: 100%; max-height: 350px; border-radius: 8px;" controls autoplay muted>
+            <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+            您的瀏覽器不支援此影片格式。
+        </video>
 
-    <div style="display: flex; justify-content: space-between; margin-top: 15px;">
-        <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">🎾 引拍預備</button>
-        <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">💥 擊球</button>
-        <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">🏁 收拍結尾</button>
+        <p style="margin: 15px 0 5px 0; font-size: 14px; color: #555; width: 100%; text-align: left;">📌 <b>快速跳轉至動作要領：</b></p>
+        
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+            <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">🎾 引拍預備</button>
+            <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">💥 擊球</button>
+            <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">🏁 收拍結尾</button>
+        </div>
     </div>
 
     <script>
@@ -140,8 +144,8 @@ def show_help_dialog():
     </script>
     """
     
-    # 渲染 HTML 元件 (高度可以根據你的影片比例調整，這裡抓 450 像素)
-    components.html(html_code, height=800)
+    # 這裡將總高度放大到 500，確保完整容納影片、文字跟按鈕
+    components.html(html_code, height=500)
 
     st.write("---")
     if st.button("關閉"):
