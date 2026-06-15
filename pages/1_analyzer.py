@@ -487,7 +487,6 @@ if uploaded_file:
                     p50 = stats['p50']
                     p25 = stats['p25']
                     worst = stats['min']
-                    std = stats['std']
                     penalty = stats['penalty']
 
                     a = mean * 0.70
@@ -499,18 +498,16 @@ if uploaded_file:
                         a + b + c + d
                     ) * 1.2
 
-                    std_pen = std * 0.05
-
-                    worst_pen = (
-                        5 if worst < 40 else 0
-                    )
+                    # 【核心修改】最終分數直接用基礎分扣掉 AI 教練懲罰即可，完全不計算標準差與最低分懲罰
+                    final_calculated_score = base - penalty
+                    
+                    # 限制分數在 0 ~ 100 之間，避免扣成負數或超過滿分
+                    final_calculated_score = max(0.0, min(100.0, final_calculated_score))
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
                     |------|------|------|
                     | 相似度總計 | `{base:.1f}` | 動作相似程度經專業加權後計算之基礎分 |
-                    | − 標準差懲罰 | `−{std_pen:.1f}` | 動作穩定性懲罰 |
-                    | − 最低分懲罰 | `−{worst_pen}` | 單一動作片段過差時額外扣分 |
                     | − AI教練懲罰 | `−{penalty:.1f}` | AI 教練動作誤差扣分 |
                     | **最終分數** | **`{score:.1f}`** | 最終成績 |
                     """)
