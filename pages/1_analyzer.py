@@ -156,7 +156,7 @@ def show_help_dialog():
 
     <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 40px; padding: 10px;">
         
-        <div style="flex: 1.2; max-width: 500px; display: flex; justify-content: center;">
+        <div style="flex: 1.2; max-width: 600px; display: flex; justify-content: center;">
             <video id="my-video" style="width: 100%; max-height: 550px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" controls autoplay muted>
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
                 您的瀏覽器不支援此影片格式。
@@ -164,14 +164,14 @@ def show_help_dialog():
         </div>
 
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 550px; align-items: flex-start;">
-            <p style="margin: 0 0 20px 0; font-size: 18px; color: #FF9797; font-weight: bold;">📌 快速跳轉至動作要領：</p>
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 快速跳轉至動作要領：</p>
             
             <button class="action-btn" onclick="seekVideo(1.0)">🎾 引拍預備</button>
             <button class="action-btn" onclick="seekVideo(2.5)">💥 擊球瞬間</button>
             <button class="action-btn" onclick="seekVideo(4.5)">🏁 收拍結尾</button>
             
-            <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
-                💡 <b>使用小提示：</b><br>點擊上方鮮紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
+            <p style="font-size: 14px; color: #FF9797; margin-top: 20px; line-height: 1.5; max-width: 300px;">
+                💡 <b>使用小提示：</b><br>點擊上方紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
             </p>
         </div>
 
