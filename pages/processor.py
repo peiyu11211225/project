@@ -174,15 +174,7 @@ class PoseProcessor:
         )
  
         final_score *= 1.2
-        final_score -= std * 0.05
- 
-        if mean > 85:
-            final_score += 5
-        elif mean > 75:
-            final_score += 1
- 
-        if worst < 40:
-            final_score -= 5
+
  
         # 呼叫大腦教練模組生成文字評語
         feedback, overall, penalty = self.coach.generate_feedback(
@@ -190,6 +182,10 @@ class PoseProcessor:
         )
  
         final_score = final_score - penalty
+        bonus = 0.0
+        if float(penalty) == 0.0:
+            final_score += 5.0
+            bonus = 5.0
         final_score = float(np.clip(final_score, 0, 100))
  
         return final_score, {
@@ -201,7 +197,8 @@ class PoseProcessor:
             "path_length": len(path),
             "feedback": feedback,
             "overall": overall,
-            "penalty": penalty
+            "penalty": penalty,
+            "bonus": bonus
         }
  
     # =========================
