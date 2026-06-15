@@ -485,30 +485,25 @@ if uploaded_file:
 
                     mean = stats['mean_path_score']
                     p50 = stats['p50']
-                    p25 = stats['p25']
-                    worst = stats['min']
                     penalty = stats['penalty']
+                    bonus = stats.get('bonus', 0.0)
 
-                    a = mean * 0.70
-                    b = p50 * 0.25
-                    c = p25 * 0.10
-                    d = worst * 0.15
+                    base = mean * 0.75 + p50 * 0.25
 
-                    base = (
-                        a + b + c + d
-                    ) * 1.2
-
-                    # 【核心修改】最終分數直接用基礎分扣掉 AI 教練懲罰即可，完全不計算標準差與最低分懲罰
-                    final_calculated_score = base - penalty
-                    
-                    # 限制分數在 0 ~ 100 之間，避免扣成負數或超過滿分
-                    final_calculated_score = max(0.0, min(100.0, final_calculated_score))
+                    if bonus > 0:
+                        bonus_text = f"`+{bonus:.1f}`"
+                        bonus_note = "🔥 完美揮拍！無教練扣分額外獎勵"
+                    else:
+                        bonus_text = "`0.0`"
+                        bonus_note = "未達完美動作標準（有教練扣分）"
+                
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
                     |------|------|------|
                     | 相似度總計 | `{base:.1f}` | 動作相似程度經專業加權後計算之基礎分 |
                     | − AI教練懲罰 | `−{penalty:.1f}` | AI 教練動作誤差扣分 |
+                    | ＋ 完美獎勵分 | {bonus_text} | {bonus_note} |
                     | **最終分數** | **`{score:.1f}`** | 最終成績 |
                     """)
 
