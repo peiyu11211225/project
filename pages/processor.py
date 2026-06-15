@@ -177,15 +177,12 @@ class PoseProcessor:
         )
  
         final_score *= 1.2
-        final_score -= std * 0.05
  
         if mean > 85:
             final_score += 5
         elif mean > 75:
             final_score += 1
  
-        if worst < 40:
-            final_score -= 5
  
         # =========================
         # AICoach penalty
