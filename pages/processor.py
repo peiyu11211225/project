@@ -167,8 +167,8 @@ class PoseProcessor:
         std = np.std(path_scores)
  
         final_score = (
-            mean * 0.75 +
-            p50 * 0.25 
+            mean * 0.8 +
+            p50 * 0.4 
         )
 
  

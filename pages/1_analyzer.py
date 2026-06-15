@@ -488,7 +488,7 @@ if uploaded_file:
                     penalty = stats['penalty']
                     bonus = stats.get('bonus', 0.0)
 
-                    base = mean * 0.75 + p50 * 0.25
+                    base = mean * 0.8 + p50 * 0.4
 
                     if bonus > 0:
                         bonus_text = f"`+{bonus:.1f}`"
