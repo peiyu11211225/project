@@ -102,7 +102,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
 @st.dialog("📘 使用說明")
 def show_help_dialog():
 
-    st.video("IMG_0284.mp4")  # 本地影片
+    st.video("pages/IMG_0284.mp4")  # 本地影片
 
     if st.button("關閉"):
         st.rerun()
