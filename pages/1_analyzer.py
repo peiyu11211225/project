@@ -211,10 +211,6 @@ def show_help_dialog():
         document.getElementById('text-' + stage).style.display = 'block';
     }}
     
-    // 預設一開始就觸發第一個按鈕，讓畫面一打開就有「1」的內容
-    window.onload = function() {{
-        seekAndShow(1.0, 'prep');
-    }};
     </script>
     """
     
