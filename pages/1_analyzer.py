@@ -139,7 +139,9 @@ def show_help_dialog():
     }}
     </script>
     """
-
+    
+    # 渲染 HTML 元件 (高度可以根據你的影片比例調整，這裡抓 450 像素)
+    components.html(html_code, height=800)
 
     st.write("---")
     if st.button("關閉"):
