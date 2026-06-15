@@ -103,7 +103,8 @@ import os
 import streamlit as st
 import streamlit.components.v1 as components
 
-@st.dialog("📘 使用說明")
+# 1. 這裡加入了 width="large" 讓整個對話框放大
+@st.dialog("📘 使用說明", width="large")
 def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     video_path = os.path.join(current_dir, "IMG_0284.mp4")
@@ -118,20 +119,20 @@ def show_help_dialog():
         video_bytes = f.read()
     video_base64 = base64.b64encode(video_bytes).decode()
 
-    # 優化後的 HTML，加上了 max-height 限制影片高度
+    # HTML 程式碼
     html_code = f"""
     <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center;">
-        <video id="my-video" style="max-width: 100%; max-height: 350px; border-radius: 8px;" controls autoplay muted>
+        <video id="my-video" style="max-width: 100%; max-height: 450px; border-radius: 8px;" controls autoplay muted>
             <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
             您的瀏覽器不支援此影片格式。
         </video>
 
-        <p style="margin: 15px 0 5px 0; font-size: 14px; color: #555; width: 100%; text-align: left;">📌 <b>快速跳轉至動作要領：</b></p>
+        <p style="margin: 15px 0 5px 0; font-size: 16px; color: #555; width: 100%; text-align: left;">📌 <b>快速跳轉至動作要領（跳轉後會自動暫停）：</b></p>
         
         <div style="display: flex; justify-content: space-between; width: 100%;">
-            <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">🎾 引拍預備</button>
-            <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">💥 擊球</button>
-            <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 12px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold;">🏁 收拍結尾</button>
+            <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">🎾 引拍預備</button>
+            <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">💥 擊球</button>
+            <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">🏁 收拍結尾</button>
         </div>
     </div>
 
@@ -139,13 +140,13 @@ def show_help_dialog():
     function seekVideo(seconds) {{
         var video = document.getElementById('my-video');
         video.currentTime = seconds;
-        video.play();
+        video.pause(); // <--- 關鍵修改：跳轉後立刻暫停畫面
     }}
     </script>
     """
     
-    # 這裡將總高度放大到 500，確保完整容納影片、文字跟按鈕
-    components.html(html_code, height=500)
+    # 因為對話框放大、影片高度調高，這裡的總組件高度拉大到 600
+    components.html(html_code, height=600)
 
     st.write("---")
     if st.button("關閉"):
