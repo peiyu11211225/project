@@ -122,7 +122,7 @@ def show_help_dialog():
     # HTML 程式碼
     html_code = f"""
     <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center;">
-        <video id="my-video" style="max-width: 100%; max-height: 450px; border-radius: 8px;" controls autoplay muted>
+        <video id="my-video" style="max-width: 100%; max-height: 600px; border-radius: 8px;" controls autoplay muted>
             <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
             您的瀏覽器不支援此影片格式。
         </video>
@@ -146,7 +146,7 @@ def show_help_dialog():
     """
     
     # 因為對話框放大、影片高度調高，這裡的總組件高度拉大到 600
-    components.html(html_code, height=600)
+    components.html(html_code, height=750)
 
     st.write("---")
     if st.button("關閉"):
