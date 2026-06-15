@@ -104,12 +104,16 @@ import streamlit as st
 
 @st.dialog("📘 使用說明")
 def show_help_dialog():
-    # 取得當前檔案 (1_analyzer.py) 的資料夾路徑
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 組合出影片的絕對路徑
     video_path = os.path.join(current_dir, "IMG_0284.mp4")
     
-    st.video(video_path)  # 使用絕對路徑
+    # --- 偵錯用區塊 ---
+    if not os.path.exists(video_path):
+        st.error(f"找不到影片！我們預期路徑是：{video_path}")
+        st.warning(f"當前 pages 資料夾底下的所有檔案有：{os.listdir(current_dir)}")
+    else:
+        st.video(video_path)
+    # ------------------
     
     if st.button("關閉"):
         st.rerun()
