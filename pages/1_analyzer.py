@@ -107,15 +107,51 @@ def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     video_path = os.path.join(current_dir, "IMG_0284.mp4")
     
-    # --- 偵錯用區塊 ---
+    # 1. 檢查檔案是否存在
     if not os.path.exists(video_path):
         st.error(f"找不到影片！我們預期路徑是：{video_path}")
         st.warning(f"當前 pages 資料夾底下的所有檔案有：{os.listdir(current_dir)}")
-    else:
-        st.video(video_path)
-    # ------------------
+        return
+
+    # 2. 初始化 session_state 用來紀錄影片起點（預設從 0 秒開始）
+    if "video_start_time" not in st.session_state:
+        st.session_state.video_start_time = 0
+
+    # 3. 渲染影片（帶入 start_time 參數）
+    # 注意：每次點擊按鈕更新 start_time 後，需要給 video 一個不同的 key，Streamlit 才會強制重新載入它
+    st.video(video_path, start_time=st.session_state.video_start_time, format="video/mp4")
     
+    st.write("---") # 分隔線
+    st.write("📌 **快速跳轉至動作要領：**")
+
+    # 4. 建立三欄式按鈕排版
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # 填入【引拍預備】的秒數，假設是第 30 幀 / 30fps = 1.0 秒
+        if st.button("🎾 引拍預備", use_container_width=True):
+            st.session_state.video_start_time = 1.0  # <--- 請在這裡修改秒數
+            st.rerun()
+
+    with col2:
+        # 填入【擊球】的秒數，假設是第 75 幀 / 30fps = 2.5 秒
+        if st.button("💥 擊球", use_container_width=True):
+            st.session_state.video_start_time = 2.5  # <--- 請在這裡修改秒數
+            st.rerun()
+
+    with col3:
+        # 填入【收拍結尾】的秒數，假設是第 135 幀 / 30fps = 4.5 秒
+        if st.button("🏁 收拍結尾", use_container_width=True):
+            st.session_state.video_start_time = 4.5  # <--- 請在這裡修改秒數
+            st.rerun()
+
+    st.write("---")
+    
+    # 5. 關閉對話框按鈕
     if st.button("關閉"):
+        # 離開前順便清除紀錄，下次打開又是從頭播
+        if "video_start_time" in st.session_state:
+            del st.session_state.video_start_time
         st.rerun()
 # Sidebar
 # =========================
