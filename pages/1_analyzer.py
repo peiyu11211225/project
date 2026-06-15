@@ -101,11 +101,8 @@ section[data-testid="stSidebar"] .stButton > button:active {
 # =========================
 @st.dialog("📘 使用說明")
 def show_help_dialog():
-    import os
 
-    st.write("目前目錄:", os.getcwd())
-    st.write("影片存在:", os.path.exists("IMG_0284.MOV"))
-    st.video("IMG_0284.MOV")  # 本地影片
+    st.video("IMG_0284.mp4")  # 本地影片
 
     if st.button("關閉"):
         st.rerun()
