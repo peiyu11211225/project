@@ -102,28 +102,10 @@ section[data-testid="stSidebar"] .stButton > button:active {
 @st.dialog("📘 使用說明")
 def show_help_dialog():
 
-    st.markdown("""
-    ### 🏸 系統功能
-    - 自動擷取羽球揮拍動作
-    - 與標準動作進行 DTW 對齊
-    - 產生分數 + 教練回饋 + 動作對照影片
-
-    ### 📌 使用方式
-    1. 上傳羽球揮拍影片
-    2. 等待 AI 動作分析
-    3. 查看動作分數、相似度曲線、教練回饋、對照影片
-
-    ### 🧠 分數說明
-    - 100分：非常接近標準動作
-    - 70～85分：動作良好
-    - 50～70分：有明顯偏差
-    - <50分：需要重新調整動作
-    """)
+    st.video("IMG_0284.MOV")  # 本地影片
 
     if st.button("關閉"):
         st.rerun()
-
-# =========================
 # Sidebar
 # =========================
 with st.sidebar:
