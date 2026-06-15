@@ -101,6 +101,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
 # =========================
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 
 @st.dialog("📘 使用說明", width="large")
 def show_help_dialog():
@@ -111,113 +112,127 @@ def show_help_dialog():
         st.error(f"找不到影片！預期路徑：{video_path}")
         return
 
-    # --- 1. 初始化 Session State 狀態 ---
-    if "current_time" not in st.session_state:
-        st.session_state.current_time = 0.0
-    if "active_stage" not in st.session_state:
-        st.session_state.active_stage = None
-    if "vid_key_counter" not in st.session_state:
-        st.session_state.vid_key_counter = 0
+    # 讀取影片並轉為 base64 格式
+    import base64
+    with open(video_path, "rb") as f:
+        video_bytes = f.read()
+    video_base64 = base64.b64encode(video_bytes).decode()
 
-    # --- 2. 注入寫死的顏色 (#FF9797) CSS 樣式 ---
-    # 這裡修正了參數名稱為 unsafe_allow_html=True
-    st.markdown("""
-        <style>
-            div.stButton > button {
-                background-color: #FF9797 !important;
-                color: white !important;
-                border: none !important;
-                font-weight: bold !important;
-                padding: 10px 16px !important;
-                width: auto !important;
-                min-width: 105px !important;
-                border-radius: 8px !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-                transition: opacity 0.2s ease !important;
-            }
-            div.stButton > button:hover {
-                opacity: 0.85 !important;
-            }
-            div.stButton > button:active {
-                transform: scale(0.98) !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # --- 3. 版面配置：左邊影片（放大），右邊按鈕與文字框 ---
-    col_left, col_right = st.columns([1.5, 1])
-
-    with col_left:
-        st.write("🎥 **動作示範影片**")
+    # 純前端完美的左右版面、左右按鈕與動態文字框
+    html_code = f"""
+    <style>
+        /* 1. 按鈕樣式：寫死為粉紅色 #FF9797 */
+        .action-btn {{
+            display: inline-block;
+            padding: 10px 16px;
+            background-color: #FF9797;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }}
         
-        # 使用計數器作為 key，跳轉時更安全不卡死
-        st.video(
-            video_path, 
-            start_time=st.session_state.current_time, 
-            format="video/mp4",
-            key=f"video_player_{st.session_state.vid_key_counter}"
-        )
-        st.caption("💡 提示：點擊右側按鈕跳轉後，影片會切換到指定時間點。")
-
-    with col_right:
-        st.write("📌 **動作要領控鍵**")
+        .action-btn:hover {{
+            opacity: 0.85;
+            transform: translateY(-1px);
+        }}
         
-        # 讓三個按鈕左右（水平）排列
-        btn_col1, btn_col2, btn_col3 = st.columns(3)
+        /* 2. 啟動狀態的按鈕樣式（點擊後加深顏色作為提示） */
+        .action-btn.active {{
+            background-color: #E27E7E;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }}
+
+        /* 3. 動態文字輸入框樣式 */
+        .note-box {{
+            display: none; /* 預設隱藏 */
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 15px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: sans-serif;
+            resize: vertical; /* 允許上下拖大 */
+            outline: none;
+        }}
+        .note-box:focus {{
+            border-color: #FF9797;
+            box-shadow: 0 0 5px rgba(255, 151, 151, 0.5);
+        }}
+    </style>
+
+    <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 35px; padding: 10px;">
         
-        with btn_col1:
-            if st.button("🎾 引拍預備"):
-                st.session_state.current_time = 1.0  # 請修改為你實測的秒數
-                st.session_state.active_stage = "prep"
-                st.session_state.vid_key_counter += 1 # 變更 key 讓影片刷新
+        <div style="flex: 1.3; max-width: 420px; display: flex; justify-content: center;">
+            <video id="my-video" style="width: 100%; max-height: 580px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" controls autoplay muted>
+                <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+                您的瀏覽器不支援此影片格式。
+            </video>
+        </div>
 
-        with btn_col2:
-            if st.button("💥 擊球瞬間"):
-                st.session_state.current_time = 2.5  # 請修改為你實測的秒數
-                st.session_state.active_stage = "hit"
-                st.session_state.vid_key_counter += 1
-
-        with btn_col3:
-            if st.button("🏁 收拍結尾"):
-                st.session_state.current_time = 4.5  # 請修改為你實測的秒數
-                st.session_state.active_stage = "finish"
-                st.session_state.vid_key_counter += 1
-
-        st.write("") # 留白
-
-        # --- 4. 按鈕下方：根據點擊的動作，動態顯示對應的文字輸入框 ---
-        if st.session_state.active_stage == "prep":
-            st.info("💡 **目前檢視：引拍預備**")
-            st.text_area(
-                "請輸入關於「引拍預備」的筆記或心得：", 
-                key="note_prep", 
-                placeholder="例如：重心壓低，球拍往後拉到腰部高度..."
-            )
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start; min-height: 500px; padding-top: 10px;">
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 動作要領控鍵：</p>
             
-        elif st.session_state.active_stage == "hit":
-            st.success("💡 **目前檢視：擊球瞬間**")
-            st.text_area(
-                "請輸入關於「擊球瞬間」的筆記或心得：", 
-                key="note_hit", 
-                placeholder="例如：手腕固定，擊球點在身體前方..."
-            )
+            <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
+                <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.0, 'prep')">🎾 引拍預備</button>
+                <button id="btn-hit" class="action-btn" onclick="seekAndShow(2.5, 'hit')">💥 擊球瞬間</button>
+                <button id="btn-finish" class="action-btn" onclick="seekVideo(4.5, 'finish')">🏁 收拍結尾</button>
+            </div>
             
-        elif st.session_state.active_stage == "finish":
-            st.warning("💡 **目前檢視：收拍結尾**")
-            st.text_area(
-                "請輸入關於「收拍結尾」的筆記或心得：", 
-                key="note_finish", 
-                placeholder="例如：完整揮拍過肩，維持身體平衡..."
-            )
-        else:
-            st.write("*請點擊上方按鈕查看動作並開啟文字備忘錄。*")
+            <div id="text-area-container" style="width: 100%;">
+                <textarea id="note-prep" class="note-box" rows="5" placeholder="請在此輸入關於【引拍預備】的動作筆記..."></textarea>
+                <textarea id="note-hit" class="note-box" rows="5" placeholder="請在此輸入關於【擊球瞬間】的動作筆記..."></textarea>
+                <textarea id="note-finish" class="note-box" rows="5" placeholder="請在此輸入關於【收拍結尾】的動作筆記..."></textarea>
+            </div>
+
+            <p style="font-size: 13px; color: #888; margin-top: auto; padding-top: 30px; line-height: 1.5;">
+                💡 <b>使用小提示：</b><br>
+                點擊上方按鈕，影片會瞬移到該動作並自動暫停。您可以在右側輸入框直接修改或記錄動作心得，內容不會因為切換而消失喔！
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+    // 核心控制邏輯：跳轉影片時間、切換按鈕高亮、切換對應文字框
+    function seekAndShow(seconds, stage) {{
+        // 1. 控制影片
+        var video = document.getElementById('my-video');
+        video.currentTime = seconds;
+        video.pause();
+
+        // 2. 清除所有按鈕的選取狀態，並高亮當前點擊的按鈕
+        document.getElementById('btn-prep').classList.remove('active');
+        document.getElementById('btn-hit').classList.remove('active');
+        document.getElementById('btn-finish').classList.remove('active');
+        document.getElementById('btn-' + stage).classList.add('active');
+
+        // 3. 隱藏所有文字框，只秀出當前動作的文字框
+        document.getElementById('note-prep').style.display = 'none';
+        document.getElementById('note-hit').style.display = 'none';
+        document.getElementById('note-finish').style.display = 'none';
+        document.getElementById('note-' + stage).style.display = 'block';
+    }}
+    
+    // 修正筆誤，建立別名確保三個按鈕觸發同一個主要函式
+    function seekVideo(seconds, stage) {{
+        seekAndShow(seconds, stage);
+    }}
+    </script>
+    """
+    
+    # 由於影片加高且下方有文字輸入框，總組件高度拉高到 610 像素確保不被切掉
+    components.html(html_code, height=610)
 
     st.write("---")
-    # 最下方的關閉按鈕，點擊時順便把暫存狀態清乾淨
-    if st.button("關閉說明頁面"):
-        if "current_time" in st.session_state: del st.session_state.current_time
-        if "active_stage" in st.session_state: del st.session_state.active_stage
-        if "vid_key_counter" in st.session_state: del st.session_state.vid_key_counter
+    if st.button("關閉說明"):
         st.rerun()
 # Sidebar
 # =========================
