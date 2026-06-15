@@ -99,11 +99,18 @@ section[data-testid="stSidebar"] .stButton > button:active {
 # =========================
 # 使用說明 Dialog
 # =========================
+import os
+import streamlit as st
+
 @st.dialog("📘 使用說明")
 def show_help_dialog():
-
-    st.video("pages/IMG_0284.mp4")  # 本地影片
-
+    # 取得當前檔案 (1_analyzer.py) 的資料夾路徑
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 組合出影片的絕對路徑
+    video_path = os.path.join(current_dir, "IMG_0284.mp4")
+    
+    st.video(video_path)  # 使用絕對路徑
+    
     if st.button("關閉"):
         st.rerun()
 # Sidebar
