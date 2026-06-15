@@ -118,9 +118,43 @@ def show_help_dialog():
         video_bytes = f.read()
     video_base64 = base64.b64encode(video_bytes).decode()
 
-    # 左右並排的 HTML / CSS 布局
+    # 調整按鈕樣式：寬度自適應文字、加上搶眼顏色
     html_code = f"""
-    <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 30px; padding: 10px;">
+    <style>
+        /* 定義按鈕的自訂樣式 */
+        .action-btn {{
+            display: inline-block;
+            width: fit-content;       /* 寬度剛好符合文字再寬一點點 */
+            min-width: 140px;         /* 設定一個最小寬度，讓三個按鈕一樣整齊 */
+            margin-bottom: 15px;
+            padding: 12px 24px;       /* 上下 12px，左右 24px 留白 */
+            background-color: #FF4B4B;/* 明確的亮眼紅橘色 */
+            color: white;             /* 白色文字，對比清晰 */
+            border: none;
+            border-radius: 8px;       /* 圓角 */
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s ease; /* 動態流暢度 */
+        }}
+        
+        /* 滑鼠移上去時的變色效果 */
+        .action-btn:hover {{
+            background-color: #E03A3A;/* 顏色變深 */
+            transform: translateY(-1px);/* 稍微浮起 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }}
+        
+        /* 點擊下去的瞬間效果 */
+        .action-btn:active {{
+            transform: translateY(1px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }}
+    </style>
+
+    <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 40px; padding: 10px;">
         
         <div style="flex: 1.2; max-width: 400px; display: flex; justify-content: center;">
             <video id="my-video" style="width: 100%; max-height: 550px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" controls autoplay muted>
@@ -129,22 +163,16 @@ def show_help_dialog():
             </video>
         </div>
 
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 550px;">
-            <p style="margin: 0 0 15px 0; font-size: 18px; color: #333; font-weight: bold;">📌 快速跳轉至動作要領：</p>
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 550px; align-items: flex-start;">
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 快速跳轉至動作要領：</p>
             
-            <button onclick="seekVideo(1.0)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
-                🎾 1. 引拍預備
-            </button>
+            <button class="action-btn" onclick="seekVideo(1.0)">🎾 引拍預備</button>
+            <button class="action-btn" onclick="seekVideo(2.5)">💥 擊球瞬間</button>
+            <button class="action-btn" onclick="seekVideo(4.5)">🏁 收拍結尾</button>
             
-            <button onclick="seekVideo(2.5)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
-                💥 2. 擊球瞬間
-            </button>
-            
-            <button onclick="seekVideo(4.5)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
-                🏁 3. 收拍結尾
-            </button>
-            
-            <p style="font-size: 14px; color: #666; margin-top: 10px; line-height: 1.4;">💡 溫馨提示：點擊按鈕後影片會自動跳轉至對應動作並<b>精準定格暫停</b>，方便您細細觀察姿勢！</p>
+            <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
+                💡 <b>使用小提示：</b><br>點擊上方鮮紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
+            </p>
         </div>
 
     </div>
@@ -158,7 +186,6 @@ def show_help_dialog():
     </script>
     """
     
-    # 整體組件高度配合影片設為 580，確保上下不留過多空白，也不會被切到
     components.html(html_code, height=580)
 
     st.write("---")
