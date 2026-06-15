@@ -105,7 +105,7 @@ def show_help_dialog():
 
     st.write("目前目錄:", os.getcwd())
     st.write("影片存在:", os.path.exists("IMG_0284.MOV"))
-    st.video("IMG_0284.MOV")  # 本地影片
+    st.video("pages/IMG_0284.MOV")  # 本地影片
 
     if st.button("關閉"):
         st.rerun()
