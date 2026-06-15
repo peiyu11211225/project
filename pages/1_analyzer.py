@@ -116,8 +116,11 @@ def show_help_dialog():
         st.session_state.current_time = 0.0
     if "active_stage" not in st.session_state:
         st.session_state.active_stage = None
+    if "vid_key_counter" not in st.session_state:
+        st.session_state.vid_key_counter = 0
 
     # --- 2. 注入寫死的顏色 (#FF9797) CSS 樣式 ---
+    # 這裡修正了參數名稱為 unsafe_allow_html=True
     st.markdown("""
         <style>
             div.stButton > button {
@@ -146,12 +149,13 @@ def show_help_dialog():
 
     with col_left:
         st.write("🎥 **動作示範影片**")
-        # 關鍵技巧：用 key 強制 Streamlit 在跳時間時重新渲染影片，跳轉後會自動停在那一秒
+        
+        # 使用計數器作為 key，跳轉時更安全不卡死
         st.video(
             video_path, 
             start_time=st.session_state.current_time, 
             format="video/mp4",
-            key=f"vid_{st.session_state.current_time}"
+            key=f"video_player_{st.session_state.vid_key_counter}"
         )
         st.caption("💡 提示：點擊右側按鈕跳轉後，影片會切換到指定時間點。")
 
@@ -165,16 +169,19 @@ def show_help_dialog():
             if st.button("🎾 引拍預備"):
                 st.session_state.current_time = 1.0  # 請修改為你實測的秒數
                 st.session_state.active_stage = "prep"
+                st.session_state.vid_key_counter += 1 # 變更 key 讓影片刷新
 
         with btn_col2:
             if st.button("💥 擊球瞬間"):
                 st.session_state.current_time = 2.5  # 請修改為你實測的秒數
                 st.session_state.active_stage = "hit"
+                st.session_state.vid_key_counter += 1
 
         with btn_col3:
             if st.button("🏁 收拍結尾"):
                 st.session_state.current_time = 4.5  # 請修改為你實測的秒數
                 st.session_state.active_stage = "finish"
+                st.session_state.vid_key_counter += 1
 
         st.write("") # 留白
 
@@ -210,6 +217,7 @@ def show_help_dialog():
     if st.button("關閉說明頁面"):
         if "current_time" in st.session_state: del st.session_state.current_time
         if "active_stage" in st.session_state: del st.session_state.active_stage
+        if "vid_key_counter" in st.session_state: del st.session_state.vid_key_counter
         st.rerun()
 # Sidebar
 # =========================
