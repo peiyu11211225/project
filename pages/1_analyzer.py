@@ -121,11 +121,10 @@ def show_help_dialog():
     # 純前端完美的左右版面、左右按鈕與動態文字框
     html_code = f"""
     <style>
-        /* 1. 按鈕樣式：寫死為粉紅色 #FF9797 */
         .action-btn {{
             display: inline-block;
             padding: 10px 16px;
-            background-color: #FF9797;
+            background-color: 	#930000;
             color: white;
             border: none;
             border-radius: 8px;
@@ -178,12 +177,12 @@ def show_help_dialog():
         </div>
 
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start; min-height: 500px; padding-top: 10px;">
-            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 動作要領控鍵：</p>
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 點擊下列關鍵點學習：</p>
             
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
                 <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.0, 'prep')">🎾 引拍預備</button>
-                <button id="btn-hit" class="action-btn" onclick="seekAndShow(2.5, 'hit')">💥 擊球瞬間</button>
-                <button id="btn-finish" class="action-btn" onclick="seekVideo(4.5, 'finish')">🏁 收拍結尾</button>
+                <button id="btn-hit" class="action-btn" onclick="seekAndShow(4.2, 'hit')">💥 擊球瞬間</button>
+                <button id="btn-finish" class="action-btn" onclick="seekVideo(5.2, 'finish')">🏁 收拍結尾</button>
             </div>
             
             <div id="text-area-container" style="width: 100%;">
