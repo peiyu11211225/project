@@ -160,6 +160,9 @@ class PoseProcessor:
         if len(path_scores) == 0:
             return 0.0, {"feedback": "動作比對路徑無效", "penalty": 0}
 
+                # =========================
+        # FINAL SCORE
+        # =========================
         mean = np.mean(path_scores)
         p50 = np.percentile(path_scores, 50)
         p25 = np.percentile(path_scores, 25)
@@ -167,21 +170,31 @@ class PoseProcessor:
         std = np.std(path_scores)
  
         final_score = (
-            mean * 0.8 +
-            p50 * 0.4 
+            mean * 0.7 +
+            p50 * 0.25 +
+            p25 * 0.10 +
+            worst * 0.15
         )
-
  
-        # 呼叫大腦教練模組生成文字評語
+        final_score *= 1.2
+        final_score -= std * 0.05
+ 
+        if mean > 85:
+            final_score += 5
+        elif mean > 75:
+            final_score += 1
+ 
+        if worst < 40:
+            final_score -= 5
+ 
+        # =========================
+        # AICoach penalty
+        # =========================
         feedback, overall, penalty = self.coach.generate_feedback(
             feat_std, feat_usr, path, None, final_score
         )
  
         final_score = final_score - penalty
-        bonus = 0.0
-        if float(penalty) == 0.0:
-            final_score += 5.0
-            bonus = 5.0
         final_score = float(np.clip(final_score, 0, 100))
  
         return final_score, {
@@ -193,8 +206,7 @@ class PoseProcessor:
             "path_length": len(path),
             "feedback": feedback,
             "overall": overall,
-            "penalty": penalty,
-            "bonus": bonus
+            "penalty": penalty
         }
  
     # =========================

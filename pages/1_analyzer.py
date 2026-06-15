@@ -224,6 +224,7 @@ def show_help_dialog():
     st.write("---")
     if st.button("關閉說明"):
         st.rerun()
+
 # Sidebar
 # =========================
 with st.sidebar:
@@ -367,6 +368,7 @@ if uploaded_file:
 
         status_box.empty()
         prog.empty()
+
     # =========================
     # 3. 分析
     # =========================
@@ -485,25 +487,33 @@ if uploaded_file:
 
                     mean = stats['mean_path_score']
                     p50 = stats['p50']
+                    p25 = stats['p25']
+                    worst = stats['min']
+                    std = stats['std']
                     penalty = stats['penalty']
-                    bonus = stats.get('bonus', 0.0)
 
-                    base = mean * 0.8 + p50 * 0.4
+                    a = mean * 0.70
+                    b = p50 * 0.25
+                    c = p25 * 0.10
+                    d = worst * 0.15
 
-                    if bonus > 0:
-                        bonus_text = f"`+{bonus:.1f}`"
-                        bonus_note = "🔥 完美揮拍！無教練扣分額外獎勵"
-                    else:
-                        bonus_text = "`0.0`"
-                        bonus_note = "未達完美動作標準（有教練扣分）"
-                
+                    base = (
+                        a + b + c + d
+                    ) * 1.2
+
+                    std_pen = std * 0.05
+
+                    worst_pen = (
+                        5 if worst < 40 else 0
+                    )
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
                     |------|------|------|
                     | 相似度總計 | `{base:.1f}` | 動作相似程度經專業加權後計算之基礎分 |
+                    | − 標準差懲罰 | `−{std_pen:.1f}` | 動作穩定性懲罰 |
+                    | − 最低分懲罰 | `−{worst_pen}` | 單一動作片段過差時額外扣分 |
                     | − AI教練懲罰 | `−{penalty:.1f}` | AI 教練動作誤差扣分 |
-                    | ＋ 完美獎勵分 | {bonus_text} | {bonus_note} |
                     | **最終分數** | **`{score:.1f}`** | 最終成績 |
                     """)
 
