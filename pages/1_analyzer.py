@@ -231,7 +231,7 @@ with st.sidebar:
     if st.button("🏠 返回首頁", use_container_width=False):
         st.switch_page("app.py")
 
-    if st.button("📘 使用說明", use_container_width=False):
+    if st.button("📘 使用教學", use_container_width=False):
         show_help_dialog()
 
     uploaded_file = st.file_uploader(
