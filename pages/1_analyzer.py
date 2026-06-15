@@ -103,7 +103,6 @@ import os
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. 這裡加入了 width="large" 讓整個對話框放大
 @st.dialog("📘 使用說明", width="large")
 def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -119,37 +118,51 @@ def show_help_dialog():
         video_bytes = f.read()
     video_base64 = base64.b64encode(video_bytes).decode()
 
-    # HTML 程式碼
+    # 左右並排的 HTML / CSS 布局
     html_code = f"""
-    <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center;">
-        <video id="my-video" style="max-width: 100%; max-height: 600px; border-radius: 8px;" controls autoplay muted>
-            <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
-            您的瀏覽器不支援此影片格式。
-        </video>
-
-        <p style="margin: 15px 0 5px 0; font-size: 16px; color: #555; width: 100%; text-align: left;">📌 <b>快速跳轉至動作要領（跳轉後會自動暫停）：</b></p>
+    <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 30px; padding: 10px;">
         
-        <div style="display: flex; justify-content: space-between; width: 100%;">
-            <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">🎾 引拍預備</button>
-            <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">💥 擊球</button>
-            <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 14px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">🏁 收拍結尾</button>
+        <div style="flex: 1.2; max-width: 400px; display: flex; justify-content: center;">
+            <video id="my-video" style="width: 100%; max-height: 550px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" controls autoplay muted>
+                <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+                您的瀏覽器不支援此影片格式。
+            </video>
         </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 550px;">
+            <p style="margin: 0 0 15px 0; font-size: 18px; color: #333; font-weight: bold;">📌 快速跳轉至動作要領：</p>
+            
+            <button onclick="seekVideo(1.0)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
+                🎾 1. 引拍預備
+            </button>
+            
+            <button onclick="seekVideo(2.5)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
+                💥 2. 擊球瞬間
+            </button>
+            
+            <button onclick="seekVideo(4.5)" style="margin-bottom: 15px; padding: 18px; background-color: #f0f2f6; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-align: left; transition: 0.2s;">
+                🏁 3. 收拍結尾
+            </button>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 10px; line-height: 1.4;">💡 溫馨提示：點擊按鈕後影片會自動跳轉至對應動作並<b>精準定格暫停</b>，方便您細細觀察姿勢！</p>
+        </div>
+
     </div>
 
     <script>
     function seekVideo(seconds) {{
         var video = document.getElementById('my-video');
         video.currentTime = seconds;
-        video.pause(); // <--- 關鍵修改：跳轉後立刻暫停畫面
+        video.pause();
     }}
     </script>
     """
     
-    # 因為對話框放大、影片高度調高，這裡的總組件高度拉大到 600
-    components.html(html_code, height=750)
+    # 整體組件高度配合影片設為 580，確保上下不留過多空白，也不會被切到
+    components.html(html_code, height=580)
 
     st.write("---")
-    if st.button("關閉"):
+    if st.button("關閉說明"):
         st.rerun()
 # Sidebar
 # =========================
