@@ -167,13 +167,9 @@ class PoseProcessor:
         std = np.std(path_scores)
  
         final_score = (
-            mean * 0.7 +
-            p50 * 0.25 +
-            p25 * 0.10 +
-            worst * 0.15
+            mean * 0.75 +
+            p50 * 0.25 
         )
- 
-        final_score *= 1.2
 
  
         # 呼叫大腦教練模組生成文字評語
