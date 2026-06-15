@@ -156,7 +156,7 @@ def show_help_dialog():
 
     <div style="font-family: sans-serif; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 40px; padding: 10px;">
         
-        <div style="flex: 1.2; max-width: 400px; display: flex; justify-content: center;">
+        <div style="flex: 1.2; max-width: 500px; display: flex; justify-content: center;">
             <video id="my-video" style="width: 100%; max-height: 550px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" controls autoplay muted>
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
                 您的瀏覽器不支援此影片格式。
@@ -164,7 +164,7 @@ def show_help_dialog():
         </div>
 
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; height: 550px; align-items: flex-start;">
-            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 快速跳轉至動作要領：</p>
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #FF9797; font-weight: bold;">📌 快速跳轉至動作要領：</p>
             
             <button class="action-btn" onclick="seekVideo(1.0)">🎾 引拍預備</button>
             <button class="action-btn" onclick="seekVideo(2.5)">💥 擊球瞬間</button>
@@ -186,7 +186,7 @@ def show_help_dialog():
     </script>
     """
     
-    components.html(html_code, height=580)
+    components.html(html_code, height=680)
 
     st.write("---")
     if st.button("關閉說明"):
