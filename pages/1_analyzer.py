@@ -178,11 +178,8 @@ def show_help_dialog():
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
                 <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.0, 'prep')">🎾 引拍預備</button>
                 <button id="btn-hit" class="action-btn" onclick="seekAndShow(4.2, 'hit')">💥 擊球瞬間</button>
-                <button id="btn-finish" class="action-btn" onclick="seekAndShow(5.35, 'finish')">🏁 收拍結尾</button>
+                <button id="btn-finish" class="action-btn" onclick="seekAndShow(5.4, 'finish')">🏁 收拍結尾</button>
 
-                <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
-                💡 <b>使用小提示：</b><br>點擊上方鮮紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
-                </p>
             </div>
             
             <div id="content-container" style="width: 100%;">
@@ -190,6 +187,10 @@ def show_help_dialog():
                 <div id="text-hit" class="content-box">2</div>
                 <div id="text-finish" class="content-box">3</div>
             </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
+                <b>使用小提示：</b><br>點擊上方鮮紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
+            </p>
 
         </div>
 
