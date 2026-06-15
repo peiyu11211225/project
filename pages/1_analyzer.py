@@ -101,38 +101,7 @@ section[data-testid="stSidebar"] .stButton > button:active {
 # =========================
 import os
 import streamlit as st
-
-# 建立一個局部刷新的元件，專門控制影片切換
-@st.fragment
-def video_player_component(video_path):
-    # 初始化局部變數（只在片段內生效，不用額外清除）
-    if "video_start_time" not in st.session_state:
-        st.session_state.video_start_time = 0.0
-
-    # 渲染影片，指定開始秒數
-    st.video(video_path, start_time=st.session_state.video_start_time, format="video/mp4")
-    
-    st.write("---")
-    st.write("📌 **快速跳轉至動作要領：**")
-
-    # 按鈕排版
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🎾 引拍預備", use_container_width=True):
-            st.session_state.video_start_time = 1.0  # <--- 修改為你的秒數
-            st.rerun()  # 這裡的 rerun 只會刷新這個 fragment，對話框不會不見！
-
-    with col2:
-        if st.button("💥 擊球", use_container_width=True):
-            st.session_state.video_start_time = 2.5  # <--- 修改為你的秒數
-            st.rerun()
-
-    with col3:
-        if st.button("🏁 收拍結尾", use_container_width=True):
-            st.session_state.video_start_time = 4.5  # <--- 修改為你的秒數
-            st.rerun()
-
+import streamlit.components.v1 as components
 
 @st.dialog("📘 使用說明")
 def show_help_dialog():
@@ -143,14 +112,39 @@ def show_help_dialog():
         st.error(f"找不到影片！預期路徑：{video_path}")
         return
 
-    # 呼叫局部刷新元件
-    video_player_component(video_path)
+    # 讀取影片的二進位資料並轉為網頁可讀的 base64 格式
+    import base64
+    with open(video_path, "rb") as f:
+        video_bytes = f.read()
+    video_base64 = base64.b64encode(video_bytes).decode()
+
+    # 使用 HTML5 和 JavaScript 控制影片跳轉秒數
+    html_code = f"""
+    <video id="my-video" width="100%" controls autoplay muted>
+        <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+        您的瀏覽器不支援此影片格式。
+    </video>
+
+    <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+        <button onclick="seekVideo(1.0)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">🎾 引拍預備</button>
+        <button onclick="seekVideo(2.5)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">💥 擊球</button>
+        <button onclick="seekVideo(4.5)" style="flex: 1; margin: 5px; padding: 10px; background-color: #f0f2f6; border: 1px solid #cca; border-radius: 4px; cursor: pointer;">🏁 收拍結尾</button>
+    </div>
+
+    <script>
+    function seekVideo(seconds) {{
+        var video = document.getElementById('my-video');
+        video.currentTime = seconds;
+        video.play();
+    }}
+    </script>
+    """
+    
+    # 渲染 HTML 元件 (高度可以根據你的影片比例調整，這裡抓 450 像素)
+    components.html(html_code, height=450)
 
     st.write("---")
-    # 最外層的關閉按鈕，點擊才會真正關閉對話框
     if st.button("關閉"):
-        if "video_start_time" in st.session_state:
-            del st.session_state.video_start_time
         st.rerun()
 # Sidebar
 # =========================
