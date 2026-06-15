@@ -118,13 +118,13 @@ def show_help_dialog():
         video_bytes = f.read()
     video_base64 = base64.b64encode(video_bytes).decode()
 
-    # 純前端完美的左右版面、左右按鈕與動態文字框
+    # 純前端完美的左右版面、左右按鈕與動態說明文字
     html_code = f"""
     <style>
         .action-btn {{
             display: inline-block;
             padding: 10px 16px;
-            background-color: 	#930000;
+            background-color: #930000;
             color: white;
             border: none;
             border-radius: 8px;
@@ -141,29 +141,25 @@ def show_help_dialog():
             transform: translateY(-1px);
         }}
         
-        /* 2. 啟動狀態的按鈕樣式（點擊後加深顏色作為提示） */
+        /* 啟動狀態的按鈕樣式（點擊後加深顏色） */
         .action-btn.active {{
             background-color: #E27E7E;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }}
 
-        /* 3. 動態文字輸入框樣式 */
-        .note-box {{
+        /* 2. 說明文字顯示框樣式 */
+        .content-box {{
             display: none; /* 預設隱藏 */
             width: 100%;
-            box-sizing: border-box;
-            margin-top: 15px;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 5px solid #FF9797; /* 粉紅邊條 */
+            border-radius: 4px;
+            font-size: 16px;
             font-family: sans-serif;
-            resize: vertical; /* 允許上下拖大 */
-            outline: none;
-        }}
-        .note-box:focus {{
-            border-color: #FF9797;
-            box-shadow: 0 0 5px rgba(255, 151, 151, 0.5);
+            line-height: 1.6;
+            color: #333;
         }}
     </style>
 
@@ -177,57 +173,51 @@ def show_help_dialog():
         </div>
 
         <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start; min-height: 500px; padding-top: 10px;">
-            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 點擊下列關鍵點學習：</p>
+            <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 點擊下列關鍵點解說：</p>
             
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
                 <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.0, 'prep')">🎾 引拍預備</button>
-                <button id="btn-hit" class="action-btn" onclick="seekAndShow(4.2, 'hit')">💥 擊球瞬間</button>
-                <button id="btn-finish" class="action-btn" onclick="seekVideo(5.2, 'finish')">🏁 收拍結尾</button>
+                <button id="btn-hit" class="action-btn" onclick="seekAndShow(2.5, 'hit')">💥 擊球瞬間</button>
+                <button id="btn-finish" class="action-btn" onclick="seekAndShow(4.5, 'finish')">🏁 收拍結尾</button>
             </div>
             
-            <div id="text-area-container" style="width: 100%;">
-                <textarea id="note-prep" class="note-box" rows="5" placeholder="請在此輸入關於【引拍預備】的動作筆記..."></textarea>
-                <textarea id="note-hit" class="note-box" rows="5" placeholder="請在此輸入關於【擊球瞬間】的動作筆記..."></textarea>
-                <textarea id="note-finish" class="note-box" rows="5" placeholder="請在此輸入關於【收拍結尾】的動作筆記..."></textarea>
+            <div id="content-container" style="width: 100%;">
+                <div id="text-prep" class="content-box">1</div>
+                <div id="text-hit" class="content-box">2</div>
+                <div id="text-finish" class="content-box">3</div>
             </div>
 
-            <p style="font-size: 13px; color: #888; margin-top: auto; padding-top: 30px; line-height: 1.5;">
-                💡 <b>使用小提示：</b><br>
-                點擊上方按鈕，影片會瞬移到該動作並自動暫停。您可以在右側輸入框直接修改或記錄動作心得，內容不會因為切換而消失喔！
-            </p>
         </div>
 
     </div>
 
     <script>
-    // 核心控制邏輯：跳轉影片時間、切換按鈕高亮、切換對應文字框
     function seekAndShow(seconds, stage) {{
-        // 1. 控制影片
+        // 1. 控制影片跳轉與暫停
         var video = document.getElementById('my-video');
         video.currentTime = seconds;
         video.pause();
 
-        // 2. 清除所有按鈕的選取狀態，並高亮當前點擊的按鈕
+        // 2. 切換按鈕高亮狀態
         document.getElementById('btn-prep').classList.remove('active');
         document.getElementById('btn-hit').classList.remove('active');
         document.getElementById('btn-finish').classList.remove('active');
         document.getElementById('btn-' + stage).classList.add('active');
 
-        // 3. 隱藏所有文字框，只秀出當前動作的文字框
-        document.getElementById('note-prep').style.display = 'none';
-        document.getElementById('note-hit').style.display = 'none';
-        document.getElementById('note-finish').style.display = 'none';
-        document.getElementById('note-' + stage).style.display = 'block';
+        // 3. 切換顯示對應的說明文字
+        document.getElementById('text-prep').style.display = 'none';
+        document.getElementById('text-hit').style.display = 'none';
+        document.getElementById('text-finish').style.display = 'none';
+        document.getElementById('text-' + stage).style.display = 'block';
     }}
     
-    // 修正筆誤，建立別名確保三個按鈕觸發同一個主要函式
-    function seekVideo(seconds, stage) {{
-        seekAndShow(seconds, stage);
-    }}
+    // 預設一開始就觸發第一個按鈕，讓畫面一打開就有「1」的內容
+    window.onload = function() {{
+        seekAndShow(1.0, 'prep');
+    }};
     </script>
     """
     
-    # 由於影片加高且下方有文字輸入框，總組件高度拉高到 610 像素確保不被切掉
     components.html(html_code, height=610)
 
     st.write("---")
