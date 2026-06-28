@@ -42,7 +42,7 @@ div[data-testid="column"] .stButton > button:active {
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align: center;'>🏸 AI 羽球教練</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🏸 AI 羽球教練 : 揮拍動作診斷平台</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center;'>請選擇要練習的揮拍項目</h4>", unsafe_allow_html=True)
 st.markdown("---")
 
