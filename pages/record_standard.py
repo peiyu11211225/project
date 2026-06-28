@@ -21,7 +21,7 @@ class AICoach:
             running_mode=mp.tasks.vision.RunningMode.VIDEO
         )
 
-    def record(self, video_path, start_frame, end_frame, output_csv="standard_swing.csv"):
+    def record(self, video_path, start_frame, end_frame, output_csv="standard_swing_one.csv"):
         """
         執行教練數據提取主流程
         """
