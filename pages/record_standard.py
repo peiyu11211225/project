@@ -122,5 +122,5 @@ if __name__ == "__main__":
         video_path="IMG_8713.mov",
         start_frame=10, 
         end_frame=260,
-        output_csv="standard_swing.csv"
+        output_csv="standard_swing_one.csv"
     )
