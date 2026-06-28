@@ -169,7 +169,7 @@ def show_help_dialog():
             
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
                 <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.3, 'prep')">🎾 引拍預備</button>
-                <button id="btn-hit" class="action-btn" onclick="seekAndShow(2.3, 'hit')">💥 擊球瞬間</button>
+                <button id="btn-hit" class="action-btn" onclick="seekAndShow(2.45, 'hit')">💥 擊球瞬間</button>
                 <button id="btn-finish" class="action-btn" onclick="seekAndShow(6.3, 'finish')">🏁 收拍結尾</button>
 
             </div>
