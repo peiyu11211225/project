@@ -250,7 +250,7 @@ def show_help_dialog():
 with st.sidebar:
 
     # 左上角
-    if st.button("🏠 返回首頁", key="home"):
+    if st.button("🏠", key="home"):
         st.switch_page("app.py")
 
     st.write("")
