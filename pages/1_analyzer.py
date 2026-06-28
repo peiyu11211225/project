@@ -82,15 +82,16 @@ section[data-testid="stSidebar"] .stButton > button {
 }
 
 /* hover */
-div[data-testid="stSidebar"] .stButton:first-child button {
-    width: 60px !important;
+/* 1. 🏠 回首頁按鈕 (key="home") */
+div[data-testid="stSidebar"] button[id*="home"] {
+    width: 80px !important; /* 調寬 */
     padding: 8px 20px !important;
     border-radius: 8px !important;
 }
 
-/* 教學示範按鈕（在 column 裡） */
-section[data-testid="stSidebar"] [data-testid="column"] button {
-    background: #C98989 !important;
+/* 2. 📘 教學示範按鈕 (key="help") */
+div[data-testid="stSidebar"] button[id*="help"] {
+    background-color: #DC3545 !important; /* 紅色 */
     color: white !important;
     font-size: 20px !important;
     font-weight: bold !important;
@@ -99,8 +100,10 @@ section[data-testid="stSidebar"] [data-testid="column"] button {
     border-radius: 12px !important;
 }
 
-section[data-testid="stSidebar"] [data-testid="column"] button:hover {
-    background: #B87777 !important;
+/* 3. 📘 教學示範按鈕滑鼠懸停 (Hover) */
+div[data-testid="stSidebar"] button[id*="help"]:hover {
+    background-color: #C82333 !important; /* 深紅色 */
+    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
