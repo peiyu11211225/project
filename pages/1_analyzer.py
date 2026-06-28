@@ -21,8 +21,8 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from pose_utils import get_full_body_angles
-from processor import PoseProcessor
-from ai_coach import AICoach
+from processor_one import PoseProcessor
+from ai_coach_one import AICoach
 from fastdtw import fastdtw
 
 # =========================
