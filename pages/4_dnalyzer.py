@@ -93,7 +93,7 @@ import os
 import streamlit as st
 import streamlit.components.v1 as components
 
-@st.dialog("📘 正拍高遠球教學", width="large")
+@st.dialog("📘 反拍挑球教學", width="large")
 def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     video_path = os.path.join(current_dir, "IMG_0297.mp4")
@@ -168,9 +168,9 @@ def show_help_dialog():
             <p style="margin: 0 0 20px 0; font-size: 18px; color: #333; font-weight: bold;">📌 點擊下列關鍵點解說：</p>
             
             <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; justify-content: flex-start;">
-                <button id="btn-prep" class="action-btn" onclick="seekAndShow(1.0, 'prep')">🎾 引拍預備</button>
-                <button id="btn-hit" class="action-btn" onclick="seekAndShow(4.2, 'hit')">💥 擊球瞬間</button>
-                <button id="btn-finish" class="action-btn" onclick="seekAndShow(5.4, 'finish')">🏁 收拍結尾</button>
+                <button id="btn-prep" class="action-btn" onclick="seekAndShow(0.5, 'prep')">🎾 引拍預備</button>
+                <button id="btn-hit" class="action-btn" onclick="seekAndShow(0.9, 'hit')">💥 擊球瞬間</button>
+                <button id="btn-finish" class="action-btn" onclick="seekAndShow(2.3, 'finish')">🏁 收拍結尾</button>
 
             </div>
             
