@@ -62,8 +62,7 @@ video {
     min-width: 100px !important;
     padding: 8px 20px !important;
     border-radius: 8px !important;
-    border: none !important;        /* 拔掉原本底部的藍色邊框 */
-    background: #a9c7de !important; /* 維持原本的顏色（或你要換色也可以） */
+    background: #a9c7de 
 }
 
 /* -------------------------------------------------------------
