@@ -33,7 +33,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏸 AI羽球教練 : 揮拍動作診斷平台")
+st.title("🏸 AI羽球教練 : 反拍挑球揮拍動作診斷")
 
 # =========================
 # CSS
