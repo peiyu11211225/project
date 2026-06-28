@@ -183,9 +183,10 @@ def show_help_dialog():
             </div>
             
             <div id="content-container" style="width: 100%;">
-                <div id="text-prep" class="content-box">1.側身站位：非持拍手朝向球網，非持拍腳腳尖朝前，持拍腳與球網平行。
-2.球拍後引：持拍手肘抬高至接近肩膀高，球拍舉至頭後方。
-3.非持拍手：指向來球，幫助瞄準落點並維持平衡。</div>
+                <div id="text-prep" class="content-box">
+                1.側身站位：非持拍手朝向球網，非持拍腳腳尖朝前，持拍腳與球網平行。<br>
+                2.球拍後引：持拍手肘抬高至接近肩膀高，球拍舉至頭後方。
+                3.非持拍手：指向來球，幫助瞄準落點並維持平衡。</div>
                 <div id="text-hit" class="content-box">2</div>
                 <div id="text-finish" class="content-box">3</div>
             </div>
