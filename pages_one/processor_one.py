@@ -6,7 +6,7 @@ import pandas as pd
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from ai_coach_one import AICoach
-from pages.pose_utils import get_full_body_angles
+from pages_one.pose_utils import get_full_body_angles
 from ai_coach_one import AICoach
 
 class PoseProcessor:
