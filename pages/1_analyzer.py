@@ -73,7 +73,7 @@ section[data-testid="stSidebar"] [data-testid="stColumn"] button * {
     background-color: #C97B7B !important;
     color: white !important;
     font-size: 26px !important;
-    font-weight: 600 !important;
+    font-weight: 300 !important;
     letter-spacing: 2px !important;
     border: none !important;
     border-radius: 12px !important;
