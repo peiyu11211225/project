@@ -3,3 +3,6 @@ venv/
 *.pyc
 .env
 overlay_output.mp4
+overlay_output_tmp.mp4
+output_sync.mp4
+output_overlay.mp4
