@@ -96,7 +96,7 @@ import streamlit.components.v1 as components
 @st.dialog("📘 正拍高遠球教學", width="large")
 def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    video_path = os.path.join(current_dir, "IMG_0284.mp4")
+    video_path = os.path.join(current_dir, "IMG_0287.mp4")
     
     if not os.path.exists(video_path):
         st.error(f"找不到影片！預期路徑：{video_path}")
