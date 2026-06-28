@@ -103,7 +103,7 @@ import os
 import streamlit as st
 import streamlit.components.v1 as components
 
-@st.dialog("📘 使用說明", width="large")
+@st.dialog("📘 正拍高遠球教學", width="large")
 def show_help_dialog():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     video_path = os.path.join(current_dir, "IMG_0284.mp4")
@@ -241,7 +241,7 @@ with st.sidebar:
     if st.button("🏠 返回首頁", use_container_width=False):
         st.switch_page("app.py")
 
-    if st.button("📘 使用教學", use_container_width=False):
+    if st.button("📘 教學示範", use_container_width=False):
         show_help_dialog()
 
     uploaded_file = st.file_uploader(
