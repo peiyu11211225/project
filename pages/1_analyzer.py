@@ -74,7 +74,8 @@ section[data-testid="stSidebar"] [data-testid="stColumn"] button {
     font-size: 30px !important;
     font-weight: bold !important;
     border: none !important;
-    border-radius: 16px !important;
+    border-radius: 12px !important;
+    padding: 18px 0 !important;
     box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
 }
 
