@@ -68,7 +68,8 @@ video {
 /* -------------------------------------------------------------
    📘 2. 教學示範按鈕客製化 (加強穿透力，強制染色)
    ------------------------------------------------------------- */
-section[data-testid="stSidebar"] [data-testid="stColumn"] button {
+section[data-testid="stSidebar"] [data-testid="stColumn"] button,
+section[data-testid="stSidebar"] [data-testid="stColumn"] button * {
     background-color: #C97B7B !important;
     color: white !important;
     font-size: 30px !important;
