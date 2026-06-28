@@ -90,8 +90,7 @@ section[data-testid="stSidebar"] .stButton:nth-of-type(1) button {
     padding: 8px 16px; /* 調寬一點 */
 }
 
-section[data-testid="stSidebar"] .stButton:nth-of-type(2) button {
-    width: 100%;
+section[data-testid="stSidebar"] div:nth-child(2) button {
     background: #C98989 !important;
     color: white !important;
     font-size: 22px !important;
