@@ -71,10 +71,10 @@ video {
 section[data-testid="stSidebar"] [data-testid="stColumn"] button {
     background-color: #C97B7B !important;
     color: white !important;
-    font-size: 22px !important;
+    font-size: 30px !important;
     font-weight: bold !important;
     border: none !important;
-    border-radius: 12px !important;
+    border-radius: 16px !important;
     box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
 }
 
@@ -240,7 +240,7 @@ with st.sidebar:
         # 📘 教學示範按鈕：用 teach-btn 包裹
         st.markdown('<div class="teach-btn">', unsafe_allow_html=True)
         if st.button(
-            "📘 教學示範",
+            "教學示範",
             key="help",
             use_container_width=True
         ):
