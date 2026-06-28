@@ -479,16 +479,6 @@ if uploaded_file:
                 if os.path.exists(output_path):
                     st.video(output_path)
 
-                st.subheader("📈 相似度曲線")
-
-                if curve:
-
-                    st.line_chart(
-                        pd.DataFrame(
-                            curve,
-                            columns=["相似度"]
-                        )
-                    )
 
             with col2:
 
