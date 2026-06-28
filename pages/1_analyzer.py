@@ -73,11 +73,12 @@ section[data-testid="stSidebar"] [data-testid="stColumn"] button * {
     background-color: #C97B7B !important;
     color: white !important;
     font-size: 26px !important;
-    font-weight: 450 !important;
+    font-weight: 550 !important;
     letter-spacing: 2px !important;
     border: none !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
+    margin-top: -15px !important;
 }
 
 section[data-testid="stSidebar"] [data-testid="stColumn"] button:hover {
