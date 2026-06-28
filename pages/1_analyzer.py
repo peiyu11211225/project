@@ -67,25 +67,39 @@ video {
 }
 
 /* -------------------------------------------------------------
-   📘 2. 教學示範按鈕客製化 (透過 .teach-btn 容器強制覆蓋)
+   📘 2. 教學示範按鈕客製化 (加強穿透力，強制染色)
    ------------------------------------------------------------- */
+/* 染紅按鈕本體 */
+.teach-btn button,
 .teach-btn div button,
-.teach-btn button {
-    background: #C97B7B !important; /* 莫蘭迪紅 */
-    color: white !important;
-    font-size: 22px !important;
-    font-weight: bold !important;
-    padding: 0.8rem 0 !important;
-    border: none !important;        /* 拔掉原本底部的藍色邊框 */
+.teach-btn div[data-testid="stButtonDynamicWidth"] button {
+    background-color: #C97B7B !important; 
+    border: none !important;        
     border-radius: 12px !important;
-    width: 100% !important;         /* 滿版配合 st.columns 寬度 */
+    width: 100% !important;         
     box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
 }
 
-/* 📘 3. 教學示範按鈕滑鼠懸停 (Hover) */
+/* 🎯 關鍵：強制把按鈕裡面的文字與圖示也染成白色 (防止被 Streamlit 預設黑色蓋掉) */
+.teach-btn button *,
+.teach-btn div button * {
+    color: white !important;
+    font-size: 22px !important;
+    font-weight: bold !important;
+}
+
+/* -------------------------------------------------------------
+   📘 3. 教學示範按鈕滑鼠懸停 (Hover)
+   ------------------------------------------------------------- */
+.teach-btn button:hover,
 .teach-btn div button:hover,
-.teach-btn button:hover {
-    background: #B86A6A !important; /* 懸停深莫蘭迪紅 */
+.teach-btn div[data-testid="stButtonDynamicWidth"] button:hover {
+    background-color: #B86A6A !important; /* 懸停深莫蘭迪紅 */
+}
+
+/* 懸停時文字維持白色 */
+.teach-btn button:hover *,
+.teach-btn div button:hover * {
     color: white !important;
 }
 </style>
