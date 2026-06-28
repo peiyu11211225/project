@@ -2,7 +2,7 @@ import os
 import streamlit as st
 
 st.set_page_config(
-    page_title="🏸 AI 羽球教練",
+    page_title="🏸 AI 羽球教練 : 揮拍動作診斷平台",
     layout="wide"
 )
 
