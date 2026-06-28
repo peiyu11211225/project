@@ -54,7 +54,7 @@ with col1:
 
 with col2:
     if st.button("\n高遠球\n反拍"):
-        st.switch_page("pages/2_analyzer.py")
+        st.switch_page("pages/2_bnalyzer.py")
 
 with col3:
     if st.button("\n挑球\n正拍"):
