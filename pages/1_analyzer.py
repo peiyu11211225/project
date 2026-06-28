@@ -185,10 +185,16 @@ def show_help_dialog():
             <div id="content-container" style="width: 100%;">
                 <div id="text-prep" class="content-box">
                 1.側身站位：非持拍手朝向球網，非持拍腳腳尖朝前，持拍腳與球網平行。<br>
-                2.球拍後引：持拍手肘抬高至接近肩膀高，球拍舉至頭後方。
+                2.球拍後引：持拍手肘抬高至接近肩膀高，球拍舉至頭後方。<br>
                 3.非持拍手：指向來球，幫助瞄準落點並維持平衡。</div>
-                <div id="text-hit" class="content-box">2</div>
-                <div id="text-finish" class="content-box">3</div>
+                <div id="text-hit" class="content-box">
+                1.全身連貫發力：手腕先自然垂落，腰部發力向前轉身，帶動手臂加速揮拍。<br>
+                2.擊球點瞬間：擊球瞬間手臂接近伸直，手腕瞬間發力向前壓球。<br>
+                3.擊球點：在身體前上方最高點擊球。
+</div>
+                <div id="text-finish" class="content-box">
+                1.自然收拍：擊球後順勢向前下方揮出，不要急停。<br>
+                2.身體轉正：持拍腳順勢向前踩，身體轉回正面，保持平衡。</div>
             </div>
 
             <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
