@@ -40,7 +40,7 @@ st.title("🏸 AI羽球教練 : 揮拍動作診斷平台")
 # =========================
 st.markdown("""
 <style>     
-/* 🎯 這行只會拔掉 pages 的檔案名字，不會動到你寫的按鈕和上傳元件 */
+/* 🎯 拔掉 pages 的檔案名字 */
 [data-testid="stSidebarNav"] {
     display: none !important;
 } 
@@ -52,62 +52,61 @@ video {
     display: block;
 }
 
-/* sidebar 使用說明按鈕 */
-section[data-testid="stSidebar"] .stButton > button {
+/* -------------------------------------------------------------
+   📌 側邊欄一般按鈕基本樣式 (排除 🏠 home 和 📘 help，避免權重打架)
+   ------------------------------------------------------------- */
+section[data-testid="stSidebar"] .stButton > button:not([id*="home"]):not([id*="help"]) {
     width: 140%;
     margin: 0 auto 12px auto;
     display: block;
-
     background: #a9c7de;
-
     border: none;
     border-bottom: 4px solid #7395ad;
-
     border-radius: 10px;
-
     color: #111111;
     font-weight: 800;
     font-size: 1rem;
-
     padding: 0.55rem 0;
-
     cursor: pointer;
-
     box-shadow: 0 4px 10px rgba(80,110,140,0.25);
-
-    transition:
-        background 0.18s ease,
-        transform 0.08s ease,
-        box-shadow 0.18s ease;
+    transition: background 0.18s ease, transform 0.08s ease, box-shadow 0.18s ease;
 }
 
-/* hover */
-/* 1. 🏠 回首頁按鈕 (key="home") */
-div[data-testid="stSidebar"] button[id*="home"] {
-    width: 80px !important; /* 調寬 */
+/* -------------------------------------------------------------
+   🏠 1. 回首頁按鈕 (key="home") 
+   ------------------------------------------------------------- */
+section[data-testid="stSidebar"] .stButton > button[id*="home"] {
+    width: 100px !important;       /* 從 60px -> 80px -> 100px 讓條寬更有感 */
+    min-width: 100px !important;
     padding: 8px 20px !important;
     border-radius: 8px !important;
+    border: none !important;        /* 拔掉原本底部的藍色邊框 */
+    display: inline-block !important; /* 確保它不會像一般按鈕一樣強制 block 滿版 */
 }
 
-/* 2. 📘 教學示範按鈕 (key="help") */
-div[data-testid="stSidebar"] button[id*="help"] {
-    background-color: #DC3545 !important; /* 紅色 */
+/* -------------------------------------------------------------
+   📘 2. 教學示範按鈕 (key="help")
+   ------------------------------------------------------------- */
+section[data-testid="stSidebar"] .stButton > button[id*="help"] {
+    background: #DC3545 !important; /* 改為紅色 */
     color: white !important;
     font-size: 20px !important;
     font-weight: bold !important;
     padding: 14px 0 !important;
-    border: none !important;
+    border: none !important;        /* 拔掉原本底部的藍色邊框 */
     border-radius: 12px !important;
+    width: 100% !important;         /* 配合你 center 欄位的寬度 */
+    box-shadow: 0 4px 10px rgba(220,53,69,0.3) !important;
 }
 
-/* 3. 📘 教學示範按鈕滑鼠懸停 (Hover) */
-div[data-testid="stSidebar"] button[id*="help"]:hover {
-    background-color: #C82333 !important; /* 深紅色 */
+/* 📘 3. 教學示範按鈕滑鼠懸停 (Hover) */
+section[data-testid="stSidebar"] .stButton > button[id*="help"]:hover {
+    background: #C82333 !important; /* 深紅色 */
     color: white !important;
+    box-shadow: 0 6px 12px rgba(220,53,69,0.4) !important;
 }
 </style>
 """, unsafe_allow_html=True)
-
 # =========================
 # 使用說明 Dialog
 # =========================
