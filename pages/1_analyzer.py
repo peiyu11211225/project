@@ -141,7 +141,7 @@ def show_help_dialog():
         .content-box {{
             display: none; /* 預設隱藏 */
             width: 100%;
-            margin-top: 45px;
+            margin-top: 60px;
             padding: 15px;
             background-color: #f9f9f9;
             border-left: 5px solid #FF9797; /* 粉紅邊條 */
@@ -188,7 +188,7 @@ def show_help_dialog():
                 2.身體轉正：持拍腳順勢向前踩，身體轉回正面，保持平衡。</div>
             </div>
 
-            <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px;">
+            <p style="font-size: 14px; color: #666; margin-top: 20px; line-height: 1.5; max-width: 300px; margin-top: 40px;">
                 <b>使用小提示：</b><br>點擊上方鮮紅色按鈕，影片會立刻瞬移到該動作並自動暫停，方便您精準比對姿勢。
             </p>
 
