@@ -141,13 +141,14 @@ def show_help_dialog():
         .content-box {{
             display: none; /* 預設隱藏 */
             width: 100%;
-            margin-top: 20px;
+            margin-top: 30px;
             padding: 15px;
             background-color: #f9f9f9;
             border-left: 5px solid #FF9797; /* 粉紅邊條 */
             border-radius: 4px;
-            font-size: 16px;
+            font-size: 18px;
             font-family: sans-serif;
+            font-weight: 500;
             line-height: 1.6;
             color: #333;
         }}
