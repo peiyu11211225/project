@@ -113,17 +113,18 @@ def show_help_dialog():
     <style>
         .action-btn {{
             display: inline-block;
-            padding: 10px 16px;
+            padding: 14px 20px;
             background-color: #930000;
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 15px;
+            font-size: 18px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
+            margin: 0 8px;
         }}
         
         .action-btn:hover {{
