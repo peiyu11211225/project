@@ -110,7 +110,7 @@ with col1:
 
     if st.button("🏹\n高遠球\n正拍"):
 
-        st.switch_page("pages_one/1_analyzer.py")
+        st.switch_page("pages/1_analyzer.py")
 
 
 
