@@ -58,11 +58,11 @@ with col2:
 
 with col3:
     if st.button("\n挑球\n正拍"):
-        st.switch_page("pages/3_lift_fh.py")
+        st.switch_page("pages/3_cnalyzer.py")
 
 with col4:
     if st.button("\n挑球\n反拍"):
-        st.switch_page("pages/4_lift_bh.py")
+        st.switch_page("pages/4_dnalyzer.py")
 
 st.markdown("---")
 st.caption("上傳影片後，AI 將自動分析揮拍動作並給予教練回饋")
