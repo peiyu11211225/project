@@ -78,7 +78,6 @@ section[data-testid="stSidebar"] [data-testid="stColumn"] button * {
     border: none !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
-    margin-top: -15px !important;
 }
 
 section[data-testid="stSidebar"] [data-testid="stColumn"] button:hover {
