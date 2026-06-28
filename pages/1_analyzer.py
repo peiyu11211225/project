@@ -82,26 +82,24 @@ section[data-testid="stSidebar"] .stButton > button {
 }
 
 /* hover */
-section[data-testid="stSidebar"] .stButton:nth-of-type(1) button {
-    width: 100%;
-    background: #f5f5f5 !important;
-    color: #333 !important;
-    border-radius: 8px;
-    padding: 8px 16px; /* 調寬一點 */
+div[data-testid="stSidebar"] .stButton:first-child button {
+    width: 60px !important;
+    padding: 8px 20px !important;
+    border-radius: 8px !important;
 }
 
-section[data-testid="stSidebar"] .stButton:nth-of-type(2) button {
-    width: 100%;
+/* 教學示範按鈕（在 column 裡） */
+section[data-testid="stSidebar"] [data-testid="column"] button {
     background: #C98989 !important;
     color: white !important;
-    font-size: 22px !important;
+    font-size: 20px !important;
     font-weight: bold !important;
     padding: 14px 0 !important;
     border: none !important;
     border-radius: 12px !important;
 }
 
-section[data-testid="stSidebar"] .stButton:nth-of-type(2) button:hover {
+section[data-testid="stSidebar"] [data-testid="column"] button:hover {
     background: #B87777 !important;
 }
 </style>
