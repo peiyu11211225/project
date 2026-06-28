@@ -52,10 +52,8 @@ video {
     display: block;
 }
 
-/* -------------------------------------------------------------
-   📌 側邊欄一般按鈕基本樣式 (排除 🏠 home 和 📘 help，避免權重打架)
-   ------------------------------------------------------------- */
-section[data-testid="stSidebar"] .stButton > button:not([id*="home"]):not([id*="help"]) {
+/* 📌 側邊欄一般按鈕基本樣式 */
+section[data-testid="stSidebar"] .stButton > button {
     width: 140%;
     margin: 0 auto 12px auto;
     display: block;
@@ -73,37 +71,39 @@ section[data-testid="stSidebar"] .stButton > button:not([id*="home"]):not([id*="
 }
 
 /* -------------------------------------------------------------
-   🏠 1. 回首頁按鈕 (key="home") 
+   🏠 1. 回首頁按鈕客製化 (透過 .home-btn 容器強制覆蓋)
    ------------------------------------------------------------- */
-section[data-testid="stSidebar"] .stButton > button[id*="home"] {
-    width: 100px !important;       /* 從 60px -> 80px -> 100px 讓條寬更有感 */
+.home-btn div button,
+.home-btn button {
+    width: 100px !important;       /* 條寬調寬 */
     min-width: 100px !important;
     padding: 8px 20px !important;
     border-radius: 8px !important;
     border: none !important;        /* 拔掉原本底部的藍色邊框 */
-    display: inline-block !important; /* 確保它不會像一般按鈕一樣強制 block 滿版 */
+    background: #a9c7de !important; /* 維持原本的顏色（或你要換色也可以） */
 }
 
 /* -------------------------------------------------------------
-   📘 2. 教學示範按鈕 (key="help")
+   📘 2. 教學示範按鈕客製化 (透過 .teach-btn 容器強制覆蓋)
    ------------------------------------------------------------- */
-section[data-testid="stSidebar"] .stButton > button[id*="help"] {
-    background: #DC3545 !important; /* 改為紅色 */
+.teach-btn div button,
+.teach-btn button {
+    background: #C97B7B !important; /* 莫蘭迪紅 */
     color: white !important;
-    font-size: 20px !important;
+    font-size: 22px !important;
     font-weight: bold !important;
-    padding: 14px 0 !important;
+    padding: 0.8rem 0 !important;
     border: none !important;        /* 拔掉原本底部的藍色邊框 */
     border-radius: 12px !important;
-    width: 100% !important;         /* 配合你 center 欄位的寬度 */
-    box-shadow: 0 4px 10px rgba(220,53,69,0.3) !important;
+    width: 100% !important;         /* 滿版配合 st.columns 寬度 */
+    box-shadow: 0 4px 10px rgba(201,123,123,0.3) !important;
 }
 
 /* 📘 3. 教學示範按鈕滑鼠懸停 (Hover) */
-section[data-testid="stSidebar"] .stButton > button[id*="help"]:hover {
-    background: #C82333 !important; /* 深紅色 */
+.teach-btn div button:hover,
+.teach-btn button:hover {
+    background: #B86A6A !important; /* 懸停深莫蘭迪紅 */
     color: white !important;
-    box-shadow: 0 6px 12px rgba(220,53,69,0.4) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -248,29 +248,33 @@ def show_help_dialog():
 # Sidebar
 # =========================
 with st.sidebar:
-
-    # 左上角
+    # 🏠 回首頁按鈕：用 home-btn 包裹
+    st.markdown('<div class="home-btn">', unsafe_allow_html=True)
     if st.button("🏠", key="home"):
         st.switch_page("app.py")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.write("")
 
     # 左右置中
-    left, center, right = st.columns([1,3,1])
+    left, center, right = st.columns([1, 3, 1])
 
     with center:
+        # 📘 教學示範按鈕：用 teach-btn 包裹
+        st.markdown('<div class="teach-btn">', unsafe_allow_html=True)
         if st.button(
             "📘 教學示範",
             key="help",
             use_container_width=True
         ):
             show_help_dialog()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
 
     uploaded_file = st.file_uploader(
         "上傳使用者影片",
-        type=["mp4","mov","avi"]
+        type=["mp4", "mov", "avi"]
     )
 
     st.info("⚠️ 注意影片越清晰，分析越準確，影片拍法請比對教學示範影片!!")
