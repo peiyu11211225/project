@@ -82,16 +82,27 @@ section[data-testid="stSidebar"] .stButton > button {
 }
 
 /* hover */
-section[data-testid="stSidebar"] .stButton > button:hover {
-    background: #89afcc;
-    box-shadow: 0 5px 14px rgba(80,110,140,0.35);
+section[data-testid="stSidebar"] .stButton:nth-of-type(1) button{
+    width:100%;
+    background:#f5f5f5;
+    color:#333;
+    border-radius:8px;
 }
 
-/* 按下 */
-section[data-testid="stSidebar"] .stButton > button:active {
-    transform: translateY(2px);
-    border-bottom: 2px solid #7395ad;
-    box-shadow: 0 2px 5px rgba(80,110,140,0.2);
+/* 第二顆按鈕：教學示範 */
+section[data-testid="stSidebar"] .stButton:nth-of-type(2) button{
+    width:100%;
+    background:#C98989;
+    color:white;
+    font-size:22px;
+    font-weight:bold;
+    padding:14px 0;
+    border:none;
+    border-radius:12px;
+}
+
+section[data-testid="stSidebar"] .stButton:nth-of-type(2) button:hover{
+    background:#B87777;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -238,15 +249,28 @@ def show_help_dialog():
 # =========================
 with st.sidebar:
 
-    if st.button("🏠 返回首頁", use_container_width=False):
+    # 左上角
+    if st.button("🏠 返回首頁", key="home"):
         st.switch_page("app.py")
 
-    if st.button("📘 教學示範", use_container_width=False):
-        show_help_dialog()
+    st.write("")
+
+    # 左右置中
+    left, center, right = st.columns([1,3,1])
+
+    with center:
+        if st.button(
+            "📘 教學示範",
+            key="help",
+            use_container_width=True
+        ):
+            show_help_dialog()
+
+    st.divider()
 
     uploaded_file = st.file_uploader(
         "上傳使用者影片",
-        type=['mp4', 'mov', 'avi']
+        type=["mp4","mov","avi"]
     )
 
     st.info("⚠️ 注意影片越清晰，分析越準確，影片拍法請比對教學示範影片!!")
