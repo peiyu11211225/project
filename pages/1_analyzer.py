@@ -52,23 +52,6 @@ video {
     display: block;
 }
 
-/* 📌 側邊欄一般按鈕基本樣式 */
-section[data-testid="stSidebar"] .stButton > button {
-    width: 140%;
-    margin: 0 auto 12px auto;
-    display: block;
-    background: #a9c7de;
-    border: none;
-    border-bottom: 4px solid #7395ad;
-    border-radius: 10px;
-    color: #111111;
-    font-weight: 800;
-    font-size: 1rem;
-    padding: 0.55rem 0;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(80,110,140,0.25);
-    transition: background 0.18s ease, transform 0.08s ease, box-shadow 0.18s ease;
-}
 
 /* -------------------------------------------------------------
    🏠 1. 回首頁按鈕客製化 (透過 .home-btn 容器強制覆蓋)
