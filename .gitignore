@@ -3,6 +3,3 @@ venv/
 *.pyc
 .env
 overlay_output.mp4
-*.mp4
-*.mov
-*.avi
