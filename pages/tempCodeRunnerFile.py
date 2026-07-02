@@ -120,7 +120,7 @@ if __name__ == "__main__":
     # 執行提取任務
     recorder.record(
         video_path="IMG_0285.mov",
-        start_frame=50, 
-        end_frame=158,
+        start_frame=450, 
+        end_frame=1580,
         output_csv="standard_backhand_clear.csv"
     )
