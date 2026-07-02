@@ -425,7 +425,7 @@ if uploaded_file:
         # -------------------------
         # 標準動作
         # -------------------------
-        csv_path = os.path.join(current_dir, "standard_swing_one.csv")
+        csv_path = os.path.join(current_dir, "standard_up.csv")
 
         if os.path.exists(csv_path):
 
@@ -583,7 +583,7 @@ if uploaded_file:
 
         else:
             st.error(
-                "找不到 standard_swing_one.csv"
+                "找不到 standard_up.csv"
             )
 
     if os.path.exists(video_path):
