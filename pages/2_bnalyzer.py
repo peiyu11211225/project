@@ -500,9 +500,9 @@ if uploaded_file:
                     std = stats['std']
                     penalty = stats['penalty']
 
-                    a = mean * 0.60
-                    b = p50 * 0.20
-                    c = p25 * 0.10
+                    a = mean * 0.6
+                    b = p50 * 0.2
+                    c = p25 * 0.1
                     d = worst * 0.15
 
                     base = (
