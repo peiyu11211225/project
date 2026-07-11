@@ -111,11 +111,14 @@ class PoseProcessor:
                 hip_r = np.array([float(row["24_x"]), float(row["24_y"])])
                 body_center_x = (hip_l[0] + hip_r[0]) / 2.0
                 torso_width = np.linalg.norm(hip_l - hip_r) + 1e-6
+
+                direction = np.tanh((w[0] - body_center_x) / torso_width)
  
                 feats.append([
                     angle / np.pi,
                     np.tanh(speed * 5),
-                    height
+                    height,
+                    direction
                 ])
  
             except:
