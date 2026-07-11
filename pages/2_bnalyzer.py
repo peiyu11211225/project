@@ -500,14 +500,12 @@ if uploaded_file:
                     std = stats['std']
                     penalty = stats['penalty']
 
-                    a = mean * 0.70
-                    b = p50 * 0.25
+                    a = mean * 0.60
+                    b = p50 * 0.20
                     c = p25 * 0.10
                     d = worst * 0.15
 
-                    base = (
-                        a + b + c + d
-                    ) * 1.2
+            
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
