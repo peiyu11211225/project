@@ -77,7 +77,7 @@ class PoseProcessor:
     def extract_features(self, df):
         """提取特徵並清洗遺失值，防止 DTW 計算崩潰"""
         if df.empty:
-            return np.zeros((1, 3))
+            return np.zeros((1, 4))
             
         # ⚠️ 強健修正：防止傳入的 DataFrame 帶有開頭或中間的 NaN 導致計算出 NaN 特徵
         df_clean = df.ffill().bfill()
@@ -106,15 +106,24 @@ class PoseProcessor:
                     speed = 0
  
                 height = 1.0 - float(row["16_y"])
+
+                hip_l = np.array([float(row["23_x"]), float(row["23_y"])])
+                hip_r = np.array([float(row["24_x"]), float(row["24_y"])])
+                body_center_x = (hip_l[0] + hip_r[0]) / 2.0
+                torso_width = np.linalg.norm(hip_l - hip_r) + 1e-6
+
+            # 手腕相對身體中心的水平偏移，正規化後用 tanh 壓縮範圍
+                direction = np.tanh((w[0] - body_center_x) / torso_width)
  
                 feats.append([
                     angle / np.pi,
                     np.tanh(speed * 5),
-                    height
+                    height,
+                    direction 
                 ])
  
             except:
-                feats.append([0, 0, 0])
+                feats.append([0, 0, 0, 0])
  
         return np.array(feats)
  
@@ -131,7 +140,7 @@ class PoseProcessor:
         # 使用 fastdtw 計算最佳匹配路徑
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
  
-        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2}
+        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
         path_scores = []
  
         for s, u in path:
@@ -143,7 +152,8 @@ class PoseProcessor:
             weighted_error = (
                 diff[0] * joint_weights[0] +
                 diff[1] * joint_weights[1] +
-                diff[2] * joint_weights[2]
+                diff[2] * joint_weights[2] +
+                diff[3] * joint_weights[3]
             )
             score = 100 * np.exp(-2.0 * weighted_error)
             path_scores.append(score)
