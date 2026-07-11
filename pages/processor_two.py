@@ -180,12 +180,13 @@ class PoseProcessor:
         std = np.std(path_scores)
  
         final_score = (
-            mean * 0.7 +
-            p50 * 0.25 +
-            p25 * 0.10 +
+            mean * 0.6 +
+            p50 * 0.2 +
+            p25 * 0.1 +
             worst * 0.15
         )
- 
+        
+        final_score *= 1.2
  
         if mean > 85:
             final_score += 5
