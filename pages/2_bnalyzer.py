@@ -507,7 +507,7 @@ if uploaded_file:
 
                     base = (
                         a + b + c + d
-                    ) * 1.2
+                    ) * 1.1
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
