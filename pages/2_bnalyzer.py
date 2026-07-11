@@ -505,7 +505,9 @@ if uploaded_file:
                     c = p25 * 0.10
                     d = worst * 0.15
 
-            
+                    base = (
+                        a + b + c + d
+                    ) 
 
                     st.markdown(f"""
                     | 項目 | 數值 | 註記 |
