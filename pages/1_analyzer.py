@@ -24,6 +24,7 @@ from pose_utils import get_full_body_angles
 from processor_one import PoseProcessor
 from ai_coach_one import AICoach
 from fastdtw import fastdtw
+from processor_one import show_alignment_proof_in_streamlit
 
 # =========================
 # UI 設定
@@ -577,6 +578,12 @@ if uploaded_file:
 
                         st.markdown(
                             f"**{overall}**"
+                        )
+
+                        show_alignment_proof_in_streamlit(
+                            proc,
+                            df_std_action,
+                            df_usr_action
                         )
 
                     else:
