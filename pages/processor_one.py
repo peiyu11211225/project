@@ -558,8 +558,8 @@ class PoseProcessor:
             )
 
             ax_before = axes[f_idx, 0]
-            ax_before.plot(raw_std, label="教練", color="#1f77b4", linewidth=1.8)
-            ax_before.plot(raw_usr, label="使用者", color="#ff7f0e", linewidth=1.8)
+            ax_before.plot(raw_std, label="教練", color="red", linewidth=1.8)
+            ax_before.plot(raw_usr, label="使用者", color="red", linewidth=1.8)
             ax_before.set_title(f"{name} - 對齊前 (RMSE={rmse_before:.3f}, r={corr_before:.2f})")
             ax_before.legend(fontsize=8)
             ax_before.grid(alpha=0.3)
@@ -574,8 +574,8 @@ class PoseProcessor:
             )
 
             ax_after = axes[f_idx, 1]
-            ax_after.plot(aligned_std, label="教練 (對齊後)", color="#1f77b4", linewidth=1.8)
-            ax_after.plot(aligned_usr, label="使用者 (對齊後)", color="#ff7f0e", linewidth=1.8)
+            ax_after.plot(aligned_std, label="教練 (對齊後)", color="green", linewidth=1.8)
+            ax_after.plot(aligned_usr, label="使用者 (對齊後)", color="green", linewidth=1.8)
             ax_after.set_title(f"{name} - 對齊後 (RMSE={rmse_after:.3f}, r={corr_after:.2f})")
             ax_after.legend(fontsize=8)
             ax_after.grid(alpha=0.3)
@@ -940,112 +940,89 @@ class PoseProcessor:
 
         x = np.arange(len(names))
         width = 0.35
-        fig, axes = plt.subplots(3, 1, figsize=(max(10, len(names) * 1.8), 16))
-
         # =====================================================
-        # 第一層：量化指標（RMSE + correlation）
+        # 第一層：保留原本量化證據圖的位置，不再畫平均曲線
+        # 量化證據（RMSE + r）會在 Streamlit 的原量化表位置
+        # 直接顯示 plot_alignment_proof() 產生的 4×2 對齊前後圖。
+        # 本張整體比較圖的第一層只保留標題區，避免重複畫曲線。
         # =====================================================
-        # 用所有樣本的平均值呈現四個特徵；CSV 仍保留每個 sample 的完整數值。
-        mean_before_rmse = np.nanmean(np.asarray([m[0] for m in feature_metrics], dtype=float), axis=0)
-        mean_after_rmse = np.nanmean(np.asarray([m[1] for m in feature_metrics], dtype=float), axis=0)
-        mean_before_corr = np.nanmean(np.asarray([m[2] for m in feature_metrics], dtype=float), axis=0)
-        mean_after_corr = np.nanmean(np.asarray([m[3] for m in feature_metrics], dtype=float), axis=0)
-
-        fx = np.arange(len(feature_names))
-        fwidth = 0.34
-        b1 = axes[0].bar(fx - fwidth/2, mean_before_rmse, fwidth, label="對齊前 RMSE")
-        b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="對齊後 RMSE")
-        axes[0].set_xticks(fx)
-        axes[0].set_xticklabels(feature_names)
-        axes[0].set_ylabel("RMSE（越低越好）")
-        axes[0].set_title("量化指標：各特徵 RMSE + Correlation")
-        axes[0].legend(loc="upper left")
-        axes[0].grid(axis="y", alpha=0.3)
-
-        for bars in (b1, b2):
-            for bar in bars:
-                h = bar.get_height()
-                axes[0].annotate(f"{h:.3f}", (bar.get_x()+bar.get_width()/2, h),
-                                 xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
-
-        corr_text = "  |  ".join(
-            f"{feature_names[i]} r: {mean_before_corr[i]:.2f} → {mean_after_corr[i]:.2f}"
-            for i in range(len(feature_names))
-        )
-        avg_rmse_before = float(np.nanmean(raw_before))
-        avg_rmse_after = float(np.nanmean(raw_after))
-        axes[0].text(
-            0.5, -0.24,
-            f"Overall RMSE: {avg_rmse_before:.4f} → {avg_rmse_after:.4f}  "
-            f"（下降 {(avg_rmse_before-avg_rmse_after):+.4f}）\n{corr_text}",
-            transform=axes[0].transAxes, ha="center", fontsize=9
+        ax_quant = fig.add_subplot(gs[0:2, :])
+        ax_quant.axis("off")
+        ax_quant.text(
+            0.5, 0.5,
+            "量化證據（RMSE + r）請見下方原始量化證據圖\n"
+            "每個特徵皆比較：對齊前（No DTW） vs 對齊後（DTW）\n"
+            "RMSE 越低越好、相關係數 r 越高代表兩段動作的形狀越一致",
+            ha="center", va="center", fontsize=12
         )
 
         # =====================================================
         # 第二層：原本基礎分數（未套正式最終公式）
         # =====================================================
-        b3 = axes[1].bar(x - width/2, original_score_before, width,
+        ax_base = fig.add_subplot(gs[2, :])
+        b3 = ax_base.bar(x - width/2, original_score_before, width,
                          label="對齊前（No DTW）")
-        b4 = axes[1].bar(x + width/2, original_score_after, width,
+        b4 = ax_base.bar(x + width/2, original_score_after, width,
                          label="對齊後（DTW）")
-        axes[1].set_ylabel("原本基礎分數（0–100）")
-        axes[1].set_ylim(0, 100)
-        axes[1].set_title(
+        ax_base.set_ylabel("原本基礎分數（0–100）")
+        ax_base.set_ylim(0, 100)
+        ax_base.set_title(
             "原本分數：未套正式最終評分公式\n"
             "per-path similarity score 取平均（未加入最終加權、1.4x、bonus、AI penalty）"
         )
-        axes[1].set_xticks(x)
-        axes[1].set_xticklabels(names, rotation=20, ha="right")
-        axes[1].legend()
-        axes[1].grid(axis="y", alpha=0.3)
+        ax_base.set_xticks(x)
+        ax_base.set_xticklabels(names, rotation=20, ha="right")
+        ax_base.legend()
+        ax_base.grid(axis="y", alpha=0.3)
         for bars in (b3, b4):
             for bar in bars:
                 h = bar.get_height()
-                axes[1].annotate(f"{h:.1f}", (bar.get_x()+bar.get_width()/2, h),
+                ax_base.annotate(f"{h:.1f}", (bar.get_x()+bar.get_width()/2, h),
                                  xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
 
         # =====================================================
         # 第三層：正式最終分數
         # =====================================================
-        b5 = axes[2].bar(x - width/2, formal_before, width,
-                         label="對齊前（No DTW / 正式公式）")
-        b6 = axes[2].bar(x + width/2, formal_after, width,
-                         label="對齊後（DTW / 正式公式）")
-        axes[2].set_ylabel("正式最終分數（0–100）")
-        axes[2].set_ylim(0, 100)
-        axes[2].set_title(
+        ax_formal = fig.add_subplot(gs[3, :])
+        b5 = ax_formal.bar(x - width/2, formal_before, width,
+                           label="對齊前（No DTW / 正式公式）")
+        b6 = ax_formal.bar(x + width/2, formal_after, width,
+                           label="對齊後（DTW / 正式公式）")
+        ax_formal.set_ylabel("正式最終分數（0–100）")
+        ax_formal.set_ylim(0, 100)
+        ax_formal.set_title(
             "正式最終分數：套用完整評分公式\n"
             "mean / p50 / p25 / worst + 1.4x + bonus + AI Coach penalty"
         )
-        axes[2].set_xticks(x)
-        axes[2].set_xticklabels(names, rotation=20, ha="right")
-        axes[2].legend()
-        axes[2].grid(axis="y", alpha=0.3)
+        ax_formal.set_xticks(x)
+        ax_formal.set_xticklabels(names, rotation=20, ha="right")
+        ax_formal.legend()
+        ax_formal.grid(axis="y", alpha=0.3)
         for bars in (b5, b6):
             for bar in bars:
                 h = bar.get_height()
-                axes[2].annotate(f"{h:.1f}", (bar.get_x()+bar.get_width()/2, h),
-                                 xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
+                ax_formal.annotate(f"{h:.1f}", (bar.get_x()+bar.get_width()/2, h),
+                                   xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
 
         avg_base_before = float(np.mean(original_score_before))
         avg_base_after = float(np.mean(original_score_after))
         avg_formal_before = float(np.mean(formal_before))
         avg_formal_after = float(np.mean(formal_after))
-        axes[1].text(
+        ax_base.text(
             0.5, -0.16,
             f"平均：對齊前={avg_base_before:.2f}  對齊後={avg_base_after:.2f}  "
             f"提升={avg_base_after-avg_base_before:+.2f}",
-            transform=axes[1].transAxes, ha="center", fontsize=9
+            transform=ax_base.transAxes, ha="center", fontsize=9
         )
-        axes[2].text(
+        ax_formal.text(
             0.5, -0.16,
             f"平均：對齊前={avg_formal_before:.2f}  對齊後={avg_formal_after:.2f}  "
             f"提升={avg_formal_after-avg_formal_before:+.2f}",
-            transform=axes[2].transAxes, ha="center", fontsize=9
+            transform=ax_formal.transAxes, ha="center", fontsize=9
         )
 
         fig.suptitle(
-            f"DTW 對齊效益：量化指標 → 原本分數 → 正式分數 [{tag}]",
+            f"DTW 對齊效益：量化數據圖 → 原本分數 → 正式分數 [{tag}]",
             fontsize=15
         )
         plt.tight_layout(rect=[0, 0.02, 1, 0.97])
@@ -1227,7 +1204,26 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
     st.subheader("📊 整體評分系統：未套公式 + 正式公式，對齊前 vs 對齊後")
     st.image(img_path)
 
-    st.dataframe(metrics_df)
+    # 直接用原本的「量化證據（RMSE + r）」圖，取代原本量化指標表的位置。
+    # 不再把量化結果改成平均曲線圖。
+    st.subheader("📈 量化證據（RMSE + r）")
+    for sample_name, df_std, df_usr in sample_pairs:
+        proof_metrics = processor.plot_alignment_proof(
+            df_std, df_usr, output_dir=output_dir, tag=f"{tag}_{sample_name}"
+        )
+        if proof_metrics is None:
+            continue
+
+        proof_img_path = os.path.join(
+            output_dir, f"{tag}_{sample_name}_alignment_proof.png"
+        )
+        if os.path.exists(proof_img_path):
+            st.caption(f"{sample_name}：對齊前 vs 對齊後")
+            st.image(proof_img_path)
+
+    # 將原本在最下面顯示的整體小表格，移到「量化證據（RMSE + r）」區塊下面。
+    st.subheader("量化指標表")
+    st.dataframe(metrics_df, use_container_width=True)
 
     with open(img_path, "rb") as f:
         st.download_button(
