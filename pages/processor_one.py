@@ -131,17 +131,23 @@ class PoseProcessor:
         return np.array(feats)
 
     # =========================
-    # 相似度評分 (DTW 優化版)
+    # 正式最終評分公式（唯一來源）
     # =========================
-    def calculate_auto_similarity(self, df_std, df_usr):
-        if df_std.empty or df_usr.empty:
-            return 0.0, {"feedback": "未偵測到有效動作數據", "penalty": 0}
+    def _calculate_final_score_from_path(self, feat_std, feat_usr, path):
+        """
+        對指定的比對 path 套用「正式分數」完整公式。
 
-        feat_std = self.extract_features(df_std)
-        feat_usr = self.extract_features(df_usr)
+        對齊前與對齊後共用這一套公式，唯一不同只有 path：
+        - 正式分數：DTW path
+        - 對齊前：逐幀硬比對 path [(0,0), (1,1), ...]
+        """
+        if len(feat_std) == 0 or len(feat_usr) == 0 or len(path) == 0:
+            return 0.0, {
+                "feedback": "動作比對路徑無效",
+                "penalty": 0,
+            }
 
-        _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
-
+        # ===== 與正式分數完全相同的特徵權重 =====
         joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
         path_scores = []
 
@@ -156,25 +162,32 @@ class PoseProcessor:
                 diff[2] * joint_weights[2] +
                 diff[3] * joint_weights[3]
             )
+
             score = 100 * np.exp(-2.0 * weighted_error)
             path_scores.append(score)
 
-        path_scores = np.array(path_scores)
+        path_scores = np.asarray(path_scores, dtype=float)
         n = len(path_scores)
 
+        # ===== 與正式分數完全相同：去除前後 5% 離群值 =====
         if n > 20:
             trim = int(n * 0.05)
             path_scores = path_scores[trim:n - trim]
 
         if len(path_scores) == 0:
-            return 0.0, {"feedback": "動作比對路徑無效", "penalty": 0}
+            return 0.0, {
+                "feedback": "動作比對路徑無效",
+                "penalty": 0,
+            }
 
-        mean = np.mean(path_scores)
-        p50 = np.percentile(path_scores, 50)
-        p25 = np.percentile(path_scores, 25)
-        worst = np.min(path_scores)
-        std = np.std(path_scores)
+        # ===== 與正式分數完全相同的統計量 =====
+        mean = float(np.mean(path_scores))
+        p50 = float(np.percentile(path_scores, 50))
+        p25 = float(np.percentile(path_scores, 25))
+        worst = float(np.min(path_scores))
+        std = float(np.std(path_scores))
 
+        # ===== 正式最終分數完整公式 =====
         final_score = (
             mean * 0.7 +
             p50 * 0.25 +
@@ -189,39 +202,87 @@ class PoseProcessor:
         elif mean > 75:
             final_score += 1
 
+        # ===== 與正式分數完全相同：AI Coach penalty =====
         feedback, overall, penalty = self.coach.generate_feedback(
-            feat_std, feat_usr, path, None, final_score
+            feat_std,
+            feat_usr,
+            path,
+            None,
+            final_score,
         )
 
         final_score = final_score - penalty
         final_score = float(np.clip(final_score, 0, 100))
 
         return final_score, {
-            "mean_path_score": float(mean),
-            "p50": float(p50),
-            "p25": float(p25),
-            "min": float(worst),
-            "std": float(std),
+            "mean_path_score": mean,
+            "p50": p50,
+            "p25": p25,
+            "min": worst,
+            "std": std,
             "path_length": len(path),
             "feedback": feedback,
             "overall": overall,
-            "penalty": penalty
+            "penalty": penalty,
         }
 
+    # =========================
+    # 相似度評分（正式 DTW 分數）
+    # =========================
+    def calculate_auto_similarity(self, df_std, df_usr):
+        """
+        正式評分：
+        先用 DTW 找到最佳 path，再套用正式最終評分公式。
+
+        此函式回傳的 final_score，就是使用者畫面上看到的最終分數。
+        """
+        if df_std.empty or df_usr.empty:
+            return 0.0, {
+                "feedback": "未偵測到有效動作數據",
+                "penalty": 0,
+            }
+
+        feat_std = self.extract_features(df_std)
+        feat_usr = self.extract_features(df_usr)
+
+        _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
+
+        return self._calculate_final_score_from_path(
+            feat_std,
+            feat_usr,
+            path,
+        )
+
     # =========================================================
-    # ▼▼▼ 新增：不做 DTW 的對照組評分（公式跟正式評分完全一致）▼▼▼
+    # 不對齊對照組：逐幀硬比對 + 完整正式評分公式
     # =========================================================
     def calculate_naive_similarity(self, df_std, df_usr):
         """
-        跟 calculate_auto_similarity 用「完全相同」的公式與後製流程
-        （去離群值、百分位混合、*1.4、加分、扣AI教練懲罰），
-        唯一差別是：不做 DTW，直接逐幀（取重疊長度）配對。
+        對齊前（Before Alignment）。
 
-        用來當作「沒有對齊」的公平對照組，這樣算出來的分數
-        才能跟正式分數 calculate_auto_similarity 直接比大小。
+        與 calculate_auto_similarity 共用完全相同的：
+        - 特徵
+        - 權重
+        - 單幀分數公式
+        - 離群值處理
+        - mean / p50 / p25 / worst 混合
+        - *1.4
+        - mean 加分
+        - AI Coach penalty
+        - 0~100 clip
+
+        唯一差別：
+        不做 DTW，直接使用 (0,0), (1,1), (2,2)...
+        的逐幀硬比對。
+
+        因此紅色「對齊前」與綠色「對齊後」是真正
+        apples-to-apples 的比較。
         """
         if df_std.empty or df_usr.empty:
-            return 0.0, {"feedback": "未偵測到有效動作數據", "penalty": 0}
+            return 0.0, {
+                "feedback": "未偵測到有效動作數據",
+                "penalty": 0,
+            }
 
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
@@ -229,69 +290,14 @@ class PoseProcessor:
         min_len = min(len(feat_std), len(feat_usr))
         path = [(i, i) for i in range(min_len)]
 
-        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
-        path_scores = []
-
-        for s, u in path:
-            diff = np.abs(feat_std[s] - feat_usr[u])
-            weighted_error = (
-                diff[0] * joint_weights[0] +
-                diff[1] * joint_weights[1] +
-                diff[2] * joint_weights[2] +
-                diff[3] * joint_weights[3]
-            )
-            score = 100 * np.exp(-2.0 * weighted_error)
-            path_scores.append(score)
-
-        path_scores = np.array(path_scores)
-        n = len(path_scores)
-
-        if n > 20:
-            trim = int(n * 0.05)
-            path_scores = path_scores[trim:n - trim]
-
-        if len(path_scores) == 0:
-            return 0.0, {"feedback": "動作比對路徑無效", "penalty": 0}
-
-        mean = np.mean(path_scores)
-        p50 = np.percentile(path_scores, 50)
-        p25 = np.percentile(path_scores, 25)
-        worst = np.min(path_scores)
-        std = np.std(path_scores)
-
-        final_score = (
-            mean * 0.7 +
-            p50 * 0.25 +
-            p25 * 0.10 +
-            worst * 0.15
-        )
-        final_score *= 1.4
-
-        if mean > 85:
-            final_score += 5
-        elif mean > 75:
-            final_score += 1
-
-        feedback, overall, penalty = self.coach.generate_feedback(
-            feat_std, feat_usr, path, None, final_score
+        return self._calculate_final_score_from_path(
+            feat_std,
+            feat_usr,
+            path,
         )
 
-        final_score = final_score - penalty
-        final_score = float(np.clip(final_score, 0, 100))
-
-        return final_score, {
-            "mean_path_score": float(mean),
-            "p50": float(p50),
-            "p25": float(p25),
-            "min": float(worst),
-            "std": float(std),
-            "path_length": len(path),
-            "feedback": feedback,
-            "overall": overall,
-            "penalty": penalty
-        }
     # =========================================================
-    # ▲▲▲ 新增區塊結束 ▲▲▲
+    # ▲▲▲ 對齊前 / 對齊後共用同一套完整正式評分公式 ▲▲▲
     # =========================================================
 
     # =========================
@@ -632,51 +638,163 @@ class PoseProcessor:
             scores.append(100 * np.exp(-2.0 * weighted_error))
         return np.array(scores)
 
+    def _calculate_raw_score_without_formal_formula(self, feat_std, feat_usr, path):
+        """
+        未套用正式評分公式的「實驗基準分數」。
+
+        這裡刻意不使用正式系統中的：
+            100 * exp(-2.0 * weighted_error)
+            mean * 0.7 + p50 * 0.25 + p25 * 0.10 + worst * 0.15
+            * 1.4、bonus、AI Coach penalty
+
+        而是只把加權姿勢誤差依照總權重做線性正規化：
+            raw_score = 100 * (1 - weighted_error / sum(weights))
+
+        因此：
+            誤差越小 -> 分數越接近 100
+            誤差越大 -> 分數越接近 0
+
+        對齊前與對齊後都使用完全相同的這個基準計算方式，
+        唯一差異仍然只有 path：
+            對齊前 = 逐幀 (i, i)
+            對齊後 = DTW path
+
+        這張圖是「實驗基準分數」，不是使用者畫面上的正式分數。
+        """
+        if len(feat_std) == 0 or len(feat_usr) == 0 or not path:
+            return 0.0
+
+        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
+        total_weight = float(sum(joint_weights.values()))
+        scores = []
+
+        for s_idx, u_idx in path:
+            s_idx = min(int(s_idx), len(feat_std) - 1)
+            u_idx = min(int(u_idx), len(feat_usr) - 1)
+
+            diff = np.abs(feat_std[s_idx] - feat_usr[u_idx])
+            weighted_error = (
+                diff[0] * joint_weights[0] +
+                diff[1] * joint_weights[1] +
+                diff[2] * joint_weights[2] +
+                diff[3] * joint_weights[3]
+            )
+
+            raw_score = 100.0 * (1.0 - weighted_error / total_weight)
+            scores.append(float(np.clip(raw_score, 0.0, 100.0)))
+
+        if not scores:
+            return 0.0
+
+        scores = np.asarray(scores, dtype=float)
+
+        # 和正式評分一樣排除前後 5% 的極端路徑點，
+        # 但不套用正式公式的百分位加權、倍率、bonus、AI Coach penalty。
+        n = len(scores)
+        if n > 20:
+            trim = int(n * 0.05)
+            if n - 2 * trim > 0:
+                scores = scores[trim:n - trim]
+
+        return float(np.clip(np.mean(scores), 0.0, 100.0))
+
+    def calculate_raw_similarity_without_formal_formula(self, df_std, df_usr, use_dtw=True):
+        """
+        計算「未套正式評分公式」的整體實驗基準分數。
+
+        use_dtw=True：對齊後，使用 DTW path。
+        use_dtw=False：對齊前，使用逐幀 (i, i) path。
+
+        注意：這個分數只用於實驗比較，不等於使用者畫面上的正式最終分數。
+        """
+        if df_std.empty or df_usr.empty:
+            return 0.0
+
+        feat_std = self.extract_features(df_std)
+        feat_usr = self.extract_features(df_usr)
+
+        if use_dtw:
+            _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
+        else:
+            min_len = min(len(feat_std), len(feat_usr))
+            path = [(i, i) for i in range(min_len)]
+
+        return self._calculate_raw_score_without_formal_formula(
+            feat_std, feat_usr, path
+        )
+
     def plot_overall_score_proof(self, sample_pairs,
                                   output_dir="alignment_proof_output",
                                   tag="overall_proof"):
         """
-        用「跟正式評分系統完全一樣」的加權公式，比較：
-            - 對齊前（naive：直接逐幀比對，取重疊長度）平均分數
-            - 對齊後（DTW path 比對）平均分數
-        畫成長條圖，直接證明「有沒有對齊」對最終評分系統的影響。
+        產生兩張「整體評分系統」對照圖，並上下放在同一張 PNG：
 
-        參數:
-            sample_pairs: list of (name, df_std, df_usr)
-                          可以只放一組（單一影片測試），
-                          也可以放多組不同使用者/影片，證明效果是穩定普遍的
-            output_dir: 輸出資料夾
-            tag: 這次比較的名稱
+        上圖：未套正式評分公式
+            - 對齊前：逐幀硬比對 + 線性正規化基準分數
+            - 對齊後：DTW + 同一套線性正規化基準分數
 
-        回傳:
-            metrics_df: 每個樣本的對齊前/後分數、進步幅度
+        下圖：套用正式評分公式
+            - 對齊前：逐幀硬比對 + 完整正式評分公式
+            - 對齊後：DTW + 完整正式評分公式
+
+        兩張圖的目的不同：
+            1. 上圖：單純觀察 DTW 對原始姿勢相似度的影響。
+            2. 下圖：確認這個改善是否能反映到使用者真正看到的正式分數。
+
+        特別注意：正式分數部分仍然直接呼叫
+        calculate_naive_similarity() 與 calculate_auto_similarity()，
+        因此不會改變原本使用者畫面上的正式評分邏輯。
         """
         os.makedirs(output_dir, exist_ok=True)
 
-        names, before_means, after_means = [], [], []
+        names = []
+        raw_before_scores = []
+        raw_after_scores = []
+        formal_before_scores = []
+        formal_after_scores = []
         rows = []
 
         for name, df_std, df_usr in sample_pairs:
             if df_std.empty or df_usr.empty:
                 continue
 
-            # 對齊前：用跟正式評分「完全相同」的公式，只是不做 DTW（公平對照組）
-            before_score, _ = self.calculate_naive_similarity(df_std, df_usr)
+            # =====================================================
+            # 第一組：未套正式公式
+            # =====================================================
+            raw_before = self.calculate_raw_similarity_without_formal_formula(
+                df_std, df_usr, use_dtw=False
+            )
+            raw_after = self.calculate_raw_similarity_without_formal_formula(
+                df_std, df_usr, use_dtw=True
+            )
 
-            # 對齊後：直接用正式評分函式，這就是使用者畫面上實際看到的分數
-            after_score, _ = self.calculate_auto_similarity(df_std, df_usr)
+            # =====================================================
+            # 第二組：正式公式（完全維持原本正式評分）
+            # =====================================================
+            formal_before, _ = self.calculate_naive_similarity(df_std, df_usr)
+            formal_after, _ = self.calculate_auto_similarity(df_std, df_usr)
 
             names.append(name)
-            before_means.append(before_score)
-            after_means.append(after_score)
+            raw_before_scores.append(raw_before)
+            raw_after_scores.append(raw_after)
+            formal_before_scores.append(formal_before)
+            formal_after_scores.append(formal_after)
+
             rows.append({
                 "sample": name,
-                "score_before_alignment": before_score,
-                "score_after_alignment": after_score,
-                "improvement": after_score - before_score,
-                "improvement_pct": (
-                    float((after_score - before_score) / before_score * 100)
-                    if before_score > 0 else float("nan")
+                "raw_score_before_no_formula": raw_before,
+                "raw_score_after_no_formula": raw_after,
+                "raw_improvement": raw_after - raw_before,
+                "raw_improvement_pct": (
+                    float((raw_after - raw_before) / raw_before * 100)
+                    if raw_before > 0 else float("nan")
+                ),
+                "formal_score_before": formal_before,
+                "formal_score_after": formal_after,
+                "formal_improvement": formal_after - formal_before,
+                "formal_improvement_pct": (
+                    float((formal_after - formal_before) / formal_before * 100)
+                    if formal_before > 0 else float("nan")
                 ),
             })
 
@@ -687,51 +805,159 @@ class PoseProcessor:
         x = np.arange(len(names))
         width = 0.35
 
-        fig, ax = plt.subplots(figsize=(max(7, len(names) * 1.6), 6))
-        bars1 = ax.bar(x - width / 2, before_means, width,
-                        label="Before Alignment (No DTW)", color="#d62728")
-        bars2 = ax.bar(x + width / 2, after_means, width,
-                        label="After Alignment (DTW)", color="#2ca02c")
+        # =========================================================
+        # 上下兩張圖：上 = 未套公式，下 = 正式公式
+        # =========================================================
+        fig, axes = plt.subplots(2, 1, figsize=(max(8, len(names) * 1.7), 11))
 
-        ax.set_ylabel("Weighted Similarity Score (0-100)")
-        ax.set_title(f"Overall Scoring System: Before vs After DTW Alignment [{tag}]")
-        ax.set_xticks(x)
-        ax.set_xticklabels(names, rotation=20, ha="right")
-        ax.legend()
-        ax.grid(axis="y", alpha=0.3)
+        # ---------------------------------------------------------
+        # 上圖：未套正式公式
+        # ---------------------------------------------------------
+        ax_raw = axes[0]
+        bars_raw_before = ax_raw.bar(
+            x - width / 2,
+            raw_before_scores,
+            width,
+            label="Before Alignment (No DTW)",
+            color="#d62728",
+        )
+        bars_raw_after = ax_raw.bar(
+            x + width / 2,
+            raw_after_scores,
+            width,
+            label="After Alignment (DTW)",
+            color="#2ca02c",
+        )
 
-        for bars in (bars1, bars2):
+        ax_raw.set_ylabel("Baseline Similarity Score (0-100)")
+        ax_raw.set_title(
+            "Overall Scoring System — WITHOUT Formal Scoring Formula\n"
+            "實驗基準分數：只比較姿勢誤差，觀察 DTW 本身的影響"
+        )
+        ax_raw.set_xticks(x)
+        ax_raw.set_xticklabels(names, rotation=20, ha="right")
+        ax_raw.set_ylim(0, 100)
+        ax_raw.legend()
+        ax_raw.grid(axis="y", alpha=0.3)
+
+        for bars in (bars_raw_before, bars_raw_after):
             for bar in bars:
                 h = bar.get_height()
-                ax.annotate(f"{h:.1f}", xy=(bar.get_x() + bar.get_width() / 2, h),
-                            xytext=(0, 3), textcoords="offset points",
-                            ha="center", fontsize=9)
+                ax_raw.annotate(
+                    f"{h:.1f}",
+                    xy=(bar.get_x() + bar.get_width() / 2, h),
+                    xytext=(0, 3),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=9,
+                )
 
-        avg_before = float(np.mean(before_means))
-        avg_after = float(np.mean(after_means))
-        avg_improve_pct = (
-            (avg_after - avg_before) / avg_before * 100 if avg_before > 0 else float("nan")
-        )
-        fig.text(
-            0.5, -0.03,
-            f"Average: Before={avg_before:.2f}   After={avg_after:.2f}   "
-            f"Improvement={avg_after - avg_before:+.2f} ({avg_improve_pct:+.1f}%)",
-            ha="center", fontsize=11,
+        avg_raw_before = float(np.mean(raw_before_scores))
+        avg_raw_after = float(np.mean(raw_after_scores))
+        raw_improve = avg_raw_after - avg_raw_before
+        raw_improve_pct = (
+            raw_improve / avg_raw_before * 100
+            if avg_raw_before > 0 else float("nan")
         )
 
-        plt.tight_layout()
-        img_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.png")
+        ax_raw.text(
+            0.5, -0.18,
+            f"Average: Before={avg_raw_before:.2f}   After={avg_raw_after:.2f}   "
+            f"Improvement={raw_improve:+.2f} ({raw_improve_pct:+.1f}%)",
+            transform=ax_raw.transAxes,
+            ha="center",
+            fontsize=10,
+        )
+
+        # ---------------------------------------------------------
+        # 下圖：正式評分公式
+        # ---------------------------------------------------------
+        ax_formal = axes[1]
+        bars_formal_before = ax_formal.bar(
+            x - width / 2,
+            formal_before_scores,
+            width,
+            label="Before Alignment (No DTW)",
+            color="#d62728",
+        )
+        bars_formal_after = ax_formal.bar(
+            x + width / 2,
+            formal_after_scores,
+            width,
+            label="After Alignment (DTW)",
+            color="#2ca02c",
+        )
+
+        ax_formal.set_ylabel("Formal Final Score (0-100)")
+        ax_formal.set_title(
+            "Overall Scoring System — WITH Formal Scoring Formula\n"
+            "正式分數：與使用者畫面上的最終評分完全一致"
+        )
+        ax_formal.set_xticks(x)
+        ax_formal.set_xticklabels(names, rotation=20, ha="right")
+        ax_formal.set_ylim(0, 100)
+        ax_formal.legend()
+        ax_formal.grid(axis="y", alpha=0.3)
+
+        for bars in (bars_formal_before, bars_formal_after):
+            for bar in bars:
+                h = bar.get_height()
+                ax_formal.annotate(
+                    f"{h:.1f}",
+                    xy=(bar.get_x() + bar.get_width() / 2, h),
+                    xytext=(0, 3),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=9,
+                )
+
+        avg_formal_before = float(np.mean(formal_before_scores))
+        avg_formal_after = float(np.mean(formal_after_scores))
+        formal_improve = avg_formal_after - avg_formal_before
+        formal_improve_pct = (
+            formal_improve / avg_formal_before * 100
+            if avg_formal_before > 0 else float("nan")
+        )
+
+        ax_formal.text(
+            0.5, -0.18,
+            f"Average: Before={avg_formal_before:.2f}   After={avg_formal_after:.2f}   "
+            f"Improvement={formal_improve:+.2f} ({formal_improve_pct:+.1f}%)",
+            transform=ax_formal.transAxes,
+            ha="center",
+            fontsize=10,
+        )
+
+        fig.suptitle(
+            f"整體評分系統：未套公式 vs 套正式公式 / 對齊前 vs 對齊後 [{tag}]",
+            fontsize=14,
+            y=0.995,
+        )
+
+        plt.tight_layout(rect=[0, 0.02, 1, 0.97])
+
+        img_path = os.path.join(
+            output_dir,
+            f"{tag}_overall_score_comparison.png",
+        )
         plt.savefig(img_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
         metrics_df = pd.DataFrame(rows)
-        csv_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.csv")
+        csv_path = os.path.join(
+            output_dir,
+            f"{tag}_overall_score_comparison.csv",
+        )
         metrics_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
 
-        print(f"✅ 整體評分對比圖已存至: {img_path}")
+        print(f"✅ 整體評分雙圖已存至: {img_path}")
+        print(f"   上圖 = 未套正式公式的實驗基準分數")
+        print(f"   下圖 = 套正式公式的使用者最終分數")
+        print(f"   CSV = {csv_path}")
         print(metrics_df.to_string(index=False))
 
         return metrics_df
+
     # =========================================================
     # ▲▲▲ 新增區塊結束 ▲▲▲
     # =========================================================
@@ -860,7 +1086,7 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
                                            output_dir="alignment_proof_output", tag=None):
     """
     在 Streamlit 頁面顯示「整體評分系統：對齊前 vs 對齊後」的長條圖比較，
-    用的是跟正式評分完全相同的加權公式，證明系統本身是有效的。
+    同時顯示「未套正式公式的實驗基準分數」與「正式最終分數」，用來比較 DTW 對整體評分的影響。
 
     用法（單一影片測試）：
         show_overall_score_proof_in_streamlit(
@@ -892,7 +1118,7 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
 
     img_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.png")
 
-    st.subheader("📊 整體評分系統：對齊前 vs 對齊後")
+    st.subheader("📊 整體評分系統：未套公式 + 正式公式，對齊前 vs 對齊後")
     st.image(img_path)
 
     st.dataframe(metrics_df)
