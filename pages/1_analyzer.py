@@ -25,6 +25,7 @@ from processor_one import PoseProcessor
 from ai_coach_one import AICoach
 from fastdtw import fastdtw
 from processor_one import show_alignment_proof_in_streamlit
+from processor_one import show_overall_score_proof_in_streamlit
 
 # =========================
 # UI 設定
@@ -584,6 +585,11 @@ if uploaded_file:
                             proc,
                             df_std_action,
                             df_usr_action
+                        )
+
+                        show_overall_score_proof_in_streamlit(
+                            proc,
+                            [("這次分析", df_std_action, df_usr_action)]
                         )
 
                     else:
