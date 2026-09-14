@@ -9,6 +9,17 @@ from ai_coach_one import AICoach
 from pages.pose_utils import get_full_body_angles
 from ai_coach_one import AICoach
 
+# ▼▼▼ 新增：畫圖用套件（原本檔案沒有，補上）▼▼▼
+import matplotlib
+matplotlib.use('Agg')  # 純存檔用，不開視窗，避免雲端/無 GUI 環境報錯
+import matplotlib.pyplot as plt
+matplotlib.rcParams['axes.unicode_minus'] = False
+matplotlib.rcParams['font.sans-serif'] = [
+    'Microsoft JhengHei', 'PingFang TC', 'Noto Sans CJK TC', 'Noto Sans TC', 'SimHei'
+]
+# ▲▲▲ 新增結束 ▲▲▲
+
+
 class PoseProcessor:
 
     def __init__(self):
@@ -25,7 +36,6 @@ class PoseProcessor:
     def _get_center_and_scale(self, df_row):
         """計算單影格的中心點與骨架長度，並嚴格處理雲端資料異常"""
         try:
-            # 雲端資料常有 NaN 或 None，先取出並給予安全預設值
             def get_val(col, default=0.5):
                 val = df_row.get(col, default)
                 return default if pd.isna(val) or val == 0 else float(val)
@@ -37,16 +47,13 @@ class PoseProcessor:
             sh_l = np.array([get_val('11_x'), get_val('11_y')])
             sh_r = np.array([get_val('12_x'), get_val('12_y')])
 
-            # 計算肩膀到髖關節的軀幹長度作為 Scale 基準
             scale = (np.linalg.norm(sh_l - hip_l) + np.linalg.norm(sh_r - hip_r)) / 2
 
-            # 如果算出來的值異常或遺失，給予安全兜底
             if scale < 0.001 or np.isnan(scale):
                 return center, 0.2
             return center, scale
 
         except:
-            # 雲端防崩潰安全鎖
             return np.array([0.5, 0.5]), 0.2
 
     def align_to_user_space(self, coach_row, user_row, current_scale_ratio):
@@ -54,7 +61,6 @@ class PoseProcessor:
         c_center, _ = self._get_center_and_scale(coach_row)
         u_center, _ = self._get_center_and_scale(user_row)
 
-        # 直接沿用外部傳入、經過全局濾波後的平滑穩定 scale_ratio
         out = coach_row.copy()
 
         for i in range(11, 33):
@@ -62,7 +68,6 @@ class PoseProcessor:
             if x_col in out and y_col in out:
                 val_x = out[x_col]
                 val_y = out[y_col]
-                # 排除 NaN 與無效偵測點
                 if pd.isna(val_x) or pd.isna(val_y):
                     continue
 
@@ -79,7 +84,6 @@ class PoseProcessor:
         if df.empty:
             return np.zeros((1, 4))
 
-        # ⚠️ 強健修正：防止傳入的 DataFrame 帶有開頭或中間的 NaN 導致計算出 NaN 特徵
         df_clean = df.ffill().bfill()
         feats = []
 
@@ -136,14 +140,12 @@ class PoseProcessor:
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
 
-        # 使用 fastdtw 計算最佳匹配路徑
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
 
         joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
         path_scores = []
 
         for s, u in path:
-            # 邊界保護防止索引溢出
             s_idx = min(s, len(feat_std) - 1)
             u_idx = min(u, len(feat_usr) - 1)
 
@@ -160,18 +162,13 @@ class PoseProcessor:
         path_scores = np.array(path_scores)
         n = len(path_scores)
 
-        # 動態截剪保護
         if n > 20:
             trim = int(n * 0.05)
             path_scores = path_scores[trim:n - trim]
 
-        # ⚠️ 防止路徑為空時計算均值出錯
         if len(path_scores) == 0:
             return 0.0, {"feedback": "動作比對路徑無效", "penalty": 0}
 
-                # =========================
-        # FINAL SCORE
-        # =========================
         mean = np.mean(path_scores)
         p50 = np.percentile(path_scores, 50)
         p25 = np.percentile(path_scores, 25)
@@ -192,10 +189,6 @@ class PoseProcessor:
         elif mean > 75:
             final_score += 1
 
-
-        # =========================
-        # AICoach penalty
-        # =========================
         feedback, overall, penalty = self.coach.generate_feedback(
             feat_std, feat_usr, path, None, final_score
         )
@@ -238,7 +231,6 @@ class PoseProcessor:
             scores[u_idx] += 100 * np.exp(-0.5 * d)
             counts[u_idx] += 1
 
-        # ⚠️ 使用 numpy.divide 的安全除法機制防止除以零
         curve = np.divide(
             scores,
             counts,
@@ -249,7 +241,7 @@ class PoseProcessor:
         return np.convolve(curve, np.ones(3) / 3, mode='same').tolist()
 
     # =========================
-    # 骨架疊加影片 (🔥 雲端優化平滑版)
+    # 骨架疊加影片 (雲端優化平滑版)
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
         if df_std.empty or df_usr.empty:
@@ -266,7 +258,6 @@ class PoseProcessor:
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        # 先寫入臨時檔案，最後透過 FFmpeg 編碼成無損標準格式
         tmp_path = output_path.replace(".mp4", "_tmp.mp4")
         out = cv2.VideoWriter(
             tmp_path,
@@ -275,7 +266,6 @@ class PoseProcessor:
             (w, h)
         )
 
-        # ─── 💡 全局 Scale 平滑化 ───
         raw_ratios = []
         for u_idx in range(len(df_usr)):
             if u_idx in u_to_s_map:
@@ -295,7 +285,6 @@ class PoseProcessor:
             smoothed_ratios[-half:] = raw_ratios[-half:]
         else:
             smoothed_ratios = raw_ratios
-        # ────────────────────────────
 
         f_idx = 0
 
@@ -308,17 +297,14 @@ class PoseProcessor:
 
             if 0 <= rel_idx < len(df_usr):
                 u_row = df_usr.iloc[rel_idx]
-                # 繪製使用者骨架 (紅色)
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
 
                 if rel_idx in u_to_s_map:
                     s_idx = min(u_to_s_map[rel_idx], len(df_std) - 1)
                     current_ratio = float(smoothed_ratios[rel_idx])
 
-                    # 將教練數據進行平移與平滑縮放對齊
                     c_row = self.align_to_user_space(df_std.iloc[s_idx], u_row, current_ratio)
 
-                    # 繪製教練骨架 (藍色)
                     self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
 
             out.write(frame)
@@ -327,7 +313,6 @@ class PoseProcessor:
         cap.release()
         out.release()
 
-        # ─── 🔥 H.264 影音轉碼 ───
         try:
             cmd = [
                 "ffmpeg", "-y",
@@ -378,12 +363,10 @@ class PoseProcessor:
             return 0, max(1, len(df)//2), max(2, len(df)-1)
 
         try:
-            # 填補極端缺失狀況
             df_filled = df.ffill().bfill()
             wx = df_filled['16_x'].values
             wy = df_filled['16_y'].values
 
-            # 計算手腕一階差分移動速度
             speed = np.hypot(
                 np.diff(wx, prepend=wx[0]),
                 np.diff(wy, prepend=wy[0])
@@ -405,16 +388,13 @@ class PoseProcessor:
                     end = i
                     break
 
-            # 前後緩衝幀配置
             start = max(0, start - 15)
             end = min(len(df_filled) - 1, end + 35)
 
-            # ⚠️ 核心防禦：如果揮拍區間過窄，進行硬性區間寬度保底
             if (end - start) < 45:
                 start = max(0, peak - 20)
                 end = min(len(df_filled) - 1, peak + 40)
 
-            # ⚠️ 強效防護：確保物理時間順序 start < peak < end，100% 避免除以零
             if peak <= start:
                 peak = start + 1
             if end <= peak:
@@ -423,10 +403,244 @@ class PoseProcessor:
             return int(start), int(peak), int(end)
 
         except:
-            # 萬一發生未知例外，執行全局安全兜底
             p = len(df) // 2
             s = max(0, p - 20)
             e = min(len(df) - 1, p + 40)
             if p <= s: p = s + 1
             if e <= p: e = p + 1
             return int(s), int(p), int(e)
+
+    # =========================================================
+    # ▼▼▼ 新增：對齊前 / 對齊後 量化比較圖（實驗數據佐證用）▼▼▼
+    # =========================================================
+    def plot_alignment_proof(self, df_std, df_usr,
+                              output_dir="alignment_proof_output",
+                              tag="sample",
+                              feature_names=("手肘夾角", "手腕速度", "擊球高度", "揮拍方向")):
+        """
+        用跟 calculate_auto_similarity 完全相同的特徵抽取方式與 fastdtw 呼叫，
+        畫出「對齊前 vs 對齊後」的量化比較圖，並存成 CSV 量化表。
+
+        只存到本機資料夾，不回傳前端，適合當作實驗數據 / 報告佐證。
+
+        參數:
+            df_std: 教練標準動作 DataFrame（跟其他方法輸入格式一致）
+            df_usr: 使用者動作 DataFrame
+            output_dir: 輸出資料夾（會自動建立）
+            tag: 這次比對的名稱，會用在檔名上（例如使用者ID、動作代碼）
+            feature_names: extract_features 輸出的四個維度對應的中文名稱
+
+        回傳:
+            metrics_df: 每個特徵對齊前後的 RMSE / 對齊後相關係數
+            (若失敗則回傳 None)
+        """
+        if df_std.empty or df_usr.empty:
+            print("⚠️ 輸入資料為空，無法繪製對齊比較圖")
+            return None
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        feat_std = self.extract_features(df_std)
+        feat_usr = self.extract_features(df_usr)
+
+        distance, path = fastdtw(feat_std, feat_usr, dist=euclidean)
+
+        n_feat = feat_std.shape[1]
+        fig, axes = plt.subplots(n_feat, 2, figsize=(14, 3.2 * n_feat))
+        if n_feat == 1:
+            axes = np.array([axes])  # 確保可用 axes[i, 0] / axes[i, 1] 的方式索引
+
+        metrics_rows = []
+
+        for f_idx in range(n_feat):
+            name = feature_names[f_idx] if f_idx < len(feature_names) else f"feature_{f_idx}"
+
+            # ---- 對齊前：直接逐幀比對（取重疊長度，模擬「沒有 DTW」的情況）----
+            raw_std = feat_std[:, f_idx]
+            raw_usr = feat_usr[:, f_idx]
+            min_len = min(len(raw_std), len(raw_usr))
+            rmse_before = float(np.sqrt(np.mean((raw_std[:min_len] - raw_usr[:min_len]) ** 2)))
+            corr_before = (
+                float(np.corrcoef(raw_std[:min_len], raw_usr[:min_len])[0, 1])
+                if min_len > 1 else float("nan")
+            )
+
+            ax_before = axes[f_idx, 0]
+            ax_before.plot(raw_std, label="教練", color="#1f77b4", linewidth=1.8)
+            ax_before.plot(raw_usr, label="使用者", color="#ff7f0e", linewidth=1.8)
+            ax_before.set_title(f"{name} - 對齊前 (RMSE={rmse_before:.3f}, r={corr_before:.2f})")
+            ax_before.legend(fontsize=8)
+            ax_before.grid(alpha=0.3)
+
+            # ---- 對齊後：沿 fastdtw path 取值 ----
+            aligned_std = np.array([feat_std[min(s, len(feat_std) - 1), f_idx] for s, u in path])
+            aligned_usr = np.array([feat_usr[min(u, len(feat_usr) - 1), f_idx] for s, u in path])
+            rmse_after = float(np.sqrt(np.mean((aligned_std - aligned_usr) ** 2)))
+            corr_after = (
+                float(np.corrcoef(aligned_std, aligned_usr)[0, 1])
+                if len(aligned_std) > 1 else float("nan")
+            )
+
+            ax_after = axes[f_idx, 1]
+            ax_after.plot(aligned_std, label="教練 (對齊後)", color="#1f77b4", linewidth=1.8)
+            ax_after.plot(aligned_usr, label="使用者 (對齊後)", color="#ff7f0e", linewidth=1.8)
+            ax_after.set_title(f"{name} - 對齊後 (RMSE={rmse_after:.3f}, r={corr_after:.2f})")
+            ax_after.legend(fontsize=8)
+            ax_after.grid(alpha=0.3)
+
+            metrics_rows.append({
+                "feature": name,
+                "rmse_before": rmse_before,
+                "corr_before": corr_before,
+                "rmse_after": rmse_after,
+                "corr_after": corr_after,
+                "improvement_rmse_pct": (
+                    float((rmse_before - rmse_after) / rmse_before * 100)
+                    if rmse_before > 0 else float("nan")
+                ),
+            })
+
+        fig.suptitle(
+            f"DTW 對齊前 vs 對齊後 量化比較 [{tag}]\n"
+            f"path_length={len(path)}, dtw_distance={distance:.2f}",
+            fontsize=13
+        )
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+        img_path = os.path.join(output_dir, f"{tag}_alignment_proof.png")
+        plt.savefig(img_path, dpi=150)
+        plt.close(fig)
+
+        metrics_df = pd.DataFrame(metrics_rows)
+        csv_path = os.path.join(output_dir, f"{tag}_alignment_metrics.csv")
+        metrics_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
+        print(f"✅ 對齊比較圖已存至: {img_path}")
+        print(f"✅ 量化指標表已存至: {csv_path}")
+        print(metrics_df.to_string(index=False))
+
+        return metrics_df
+    # =========================================================
+    # ▲▲▲ 新增區塊結束 ▲▲▲
+    # =========================================================
+
+
+# =========================================================
+# ▼▼▼ 新增：Streamlit 頁面用的顯示包裝函式 ▼▼▼
+# =========================================================
+def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr,
+                                       output_dir="alignment_proof_output", tag=None):
+    """
+    在 Streamlit 頁面裡一行呼叫，就能：
+      1. 呼叫 processor.plot_alignment_proof() 產生圖檔 + CSV
+         （若沒給 tag，會自動用「時間戳記」命名，例如 20260915_143022，
+         這樣每次跑都會是新檔案，不會把前一次的結果覆蓋掉）
+      2. 用 st.image() 把圖顯示在頁面上（因為 Streamlit Cloud 的檔案系統
+         本機看不到，要靠這個才能親眼確認圖有沒有畫出來）
+      3. 提供下載按鈕，讓你能把這次的圖存回本機
+      4. 用 st.dataframe() 顯示量化指標表
+
+    用法（在你的 Streamlit 頁面，例如 pages/xxx.py）：
+
+        from pose_processor import PoseProcessor, show_alignment_proof_in_streamlit
+
+        processor = PoseProcessor()
+        show_alignment_proof_in_streamlit(processor, df_std, df_usr)
+
+    注意：這個函式內部才 import streamlit，所以 pose_processor.py
+    本身仍然可以在非 Streamlit 環境（例如純命令列腳本）下正常使用，
+    不會因為缺少 streamlit 套件而整支檔案 import 失敗。
+    """
+    import streamlit as st
+    from datetime import datetime
+
+    if tag is None:
+        tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    metrics_df = processor.plot_alignment_proof(df_std, df_usr, output_dir=output_dir, tag=tag)
+
+    if metrics_df is None:
+        st.warning("⚠️ 對齊比較圖產生失敗（輸入的 df_std 或 df_usr 是空的）")
+        return None
+
+    img_path = os.path.join(output_dir, f"{tag}_alignment_proof.png")
+
+    st.subheader("這次的對齊前後比較圖")
+    st.image(img_path, caption=f"對齊比較圖 - {tag}")
+
+    with open(img_path, "rb") as f:
+        st.download_button(
+            "下載這張對齊比較圖 (PNG)",
+            f,
+            file_name=f"{tag}_alignment_proof.png",
+            mime="image/png",
+            key=f"download_img_{tag}",
+        )
+
+    st.subheader("這次的量化指標表")
+    st.dataframe(metrics_df)
+
+    csv_path = os.path.join(output_dir, f"{tag}_alignment_metrics.csv")
+    with open(csv_path, "rb") as f:
+        st.download_button(
+            "下載這份量化指標表 (CSV)",
+            f,
+            file_name=f"{tag}_alignment_metrics.csv",
+            mime="text/csv",
+            key=f"download_csv_{tag}",
+        )
+
+    return metrics_df
+
+
+def show_alignment_proof_history(output_dir="alignment_proof_output"):
+    """
+    列出 output_dir 裡「過去所有」跑過的對比圖，
+    每一張都附下載按鈕 —— 不用重新跑一次也能拿到舊的結果。
+
+    用法（放在頁面任何位置，通常放在最下面當作歷史紀錄區）：
+
+        from pose_processor import show_alignment_proof_history
+        show_alignment_proof_history()
+    """
+    import streamlit as st
+
+    if not os.path.isdir(output_dir):
+        st.info("目前還沒有任何對比圖紀錄")
+        return
+
+    png_files = sorted(
+        [f for f in os.listdir(output_dir) if f.endswith("_alignment_proof.png")],
+        reverse=True,  # 最新的排前面
+    )
+
+    if not png_files:
+        st.info("目前還沒有任何對比圖紀錄")
+        return
+
+    st.subheader(f"歷史對比圖紀錄（共 {len(png_files)} 筆）")
+
+    for png_name in png_files:
+        tag = png_name.replace("_alignment_proof.png", "")
+        img_path = os.path.join(output_dir, png_name)
+        csv_path = os.path.join(output_dir, f"{tag}_alignment_metrics.csv")
+
+        with st.expander(f"📊 {tag}"):
+            st.image(img_path)
+            col1, col2 = st.columns(2)
+            with col1:
+                with open(img_path, "rb") as f:
+                    st.download_button(
+                        "下載圖片", f, file_name=png_name,
+                        mime="image/png", key=f"hist_img_{tag}",
+                    )
+            with col2:
+                if os.path.exists(csv_path):
+                    with open(csv_path, "rb") as f:
+                        st.download_button(
+                            "下載指標表", f, file_name=f"{tag}_alignment_metrics.csv",
+                            mime="text/csv", key=f"hist_csv_{tag}",
+                        )
+# =========================================================
+# ▲▲▲ 新增結束 ▲▲▲
+# =========================================================
