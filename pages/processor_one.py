@@ -856,61 +856,103 @@ def show_alignment_proof_history(output_dir="alignment_proof_output"):
 # =========================================================
 # ▼▼▼ 新增：整體評分系統證明的 Streamlit 顯示包裝 ▼▼▼
 # =========================================================
-def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pairs,
-                                           output_dir="alignment_proof_output", tag=None):
-    """
-    在 Streamlit 頁面顯示「整體評分系統：對齊前 vs 對齊後」的長條圖比較，
-    用的是跟正式評分完全相同的加權公式，證明系統本身是有效的。
+# =========================================================
+    # ▼▼▼ 修正：整體評分系統 對齊前 vs 對齊後 證明（完全同公式對比）▼▼▼
+    # =========================================================
+def plot_overall_score_proof(self, sample_pairs,
+                              output_dir="alignment_proof_output",
+                              tag="overall_proof"):
+        """
+        用跟正式評分系統「完全相同」的完整計算公式（含 1.4x 放大、評分加成、AI 教練懲罰等）：
+            - 對齊前（Naive）：直接逐幀硬比對（不走 DTW）的最終得分
+            - 對齊後（DTW）：走 DTW 對齊路徑後計算出的最終得分（即前端顯示的正式分數）
 
-    用法（單一影片測試）：
-        show_overall_score_proof_in_streamlit(
-            proc,
-            [("這次分析", df_std_action, df_usr_action)]
-        )
+        畫成長條圖，呈現「時間對齊機制」對整體動作評分結果的關鍵效益。
+        """
+    os.makedirs(output_dir, exist_ok=True)
 
-    用法（多筆測試，證明效果穩定）：
-        show_overall_score_proof_in_streamlit(
-            proc,
-            [
-                ("使用者A", df_std_a, df_usr_a),
-                ("使用者B", df_std_b, df_usr_b),
-                ("使用者C", df_std_c, df_usr_c),
-            ]
-        )
-    """
-    import streamlit as st
-    from datetime import datetime
+    names, before_scores, after_scores = [], [], []
+    rows = []
 
-    if tag is None:
-        tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+    for name, df_std, df_usr in sample_pairs:
+        if df_std.empty or df_usr.empty:
+            continue
 
-    metrics_df = processor.plot_overall_score_proof(sample_pairs, output_dir=output_dir, tag=tag)
+            # 1. 對齊前：完全相同的最終評分公式，但不做 DTW 逐幀硬比（Naive 對照組）
+        before_score, info_before = self.calculate_naive_similarity(df_std, df_usr)
 
-    if metrics_df is None:
-        st.warning("⚠️ 沒有有效樣本可以比較")
+            # 2. 對齊後：正式評分函式（使用者畫面上看到的 100% 相同最終分數）
+        after_score, info_after = self.calculate_auto_similarity(df_std, df_usr)
+
+        names.append(name)
+        before_scores.append(before_score)
+        after_scores.append(after_score)
+
+        rows.append({
+            "sample": name,
+            "score_before_alignment": before_score,
+            "score_after_alignment": after_score,
+            "improvement": after_score - before_score,
+            "improvement_pct": (
+                float((after_score - before_score) / before_score * 100)
+                if before_score > 0 else float("nan")
+            ),
+            "penalty_before": info_before.get("penalty", 0),
+            "penalty_after": info_after.get("penalty", 0)
+        })
+
+    if not names:
+        print("⚠️ 沒有有效樣本可以比較")
         return None
 
+    x = np.arange(len(names))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(max(7, len(names) * 1.8), 6))
+    bars1 = ax.bar(x - width / 2, before_scores, width,
+                    label="對齊前 (No DTW / 逐幀比對)", color="#d62728")
+    bars2 = ax.bar(x + width / 2, after_scores, width,
+                    label="對齊後 (DTW / 正式評分)", color="#2ca02c")
+
+    ax.set_ylabel("最終動作相似度評分 (0-100分)")
+    ax.set_title(f"整體評分系統：DTW 對齊前 vs 對齊後 效益分析 [{tag}]")
+    ax.set_xticks(x)
+    ax.set_xticklabels(names, rotation=20, ha="right")
+    ax.set_ylim(0, 105)
+    ax.legend(loc="upper left")
+    ax.grid(axis="y", alpha=0.3)
+
+        # 標示長條圖上的數值
+    for bars in (bars1, bars2):
+        for bar in bars:
+            h = bar.get_height()
+            ax.annotate(f"{h:.1f}", xy=(bar.get_x() + bar.get_width() / 2, h),
+                        xytext=(0, 3), textcoords="offset points",
+                        ha="center", fontsize=9, fontweight="bold")
+
+    avg_before = float(np.mean(before_scores))
+    avg_after = float(np.mean(after_scores))
+    avg_improve_pct = (
+        (avg_after - avg_before) / avg_before * 100 if avg_before > 0 else float("nan")
+    )
+    fig.text(
+        0.5, -0.04,
+        f"平均最終得分：對齊前={avg_before:.1f} 分 ｜ 對齊後={avg_after:.1f} 分 ｜ "
+        f"平均提升={avg_after - avg_before:+.1f} 分 ({avg_improve_pct:+.1f}%)",
+        ha="center", fontsize=11, fontweight="bold"
+    )
+
+    plt.tight_layout()
     img_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.png")
+    plt.savefig(img_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
-    st.subheader("📊 整體評分系統：對齊前 vs 對齊後")
-    st.image(img_path)
-
-    st.dataframe(metrics_df)
-
-    with open(img_path, "rb") as f:
-        st.download_button(
-            "下載比較圖 (PNG)", f,
-            file_name=f"{tag}_overall_score_comparison.png",
-            mime="image/png", key=f"overall_img_{tag}",
-        )
-
+    metrics_df = pd.DataFrame(rows)
     csv_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.csv")
-    with open(csv_path, "rb") as f:
-        st.download_button(
-            "下載比較表 (CSV)", f,
-            file_name=f"{tag}_overall_score_comparison.csv",
-            mime="text/csv", key=f"overall_csv_{tag}",
-        )
+    metrics_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
+    print(f"✅ 整體評分對對比圖已更新並存至: {img_path}")
+    print(metrics_df.to_string(index=False))
 
     return metrics_df
 # =========================================================
