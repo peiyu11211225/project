@@ -208,6 +208,92 @@ class PoseProcessor:
             "penalty": penalty
         }
 
+    # =========================================================
+    # ▼▼▼ 新增：不做 DTW 的對照組評分（公式跟正式評分完全一致）▼▼▼
+    # =========================================================
+    def calculate_naive_similarity(self, df_std, df_usr):
+        """
+        跟 calculate_auto_similarity 用「完全相同」的公式與後製流程
+        （去離群值、百分位混合、*1.4、加分、扣AI教練懲罰），
+        唯一差別是：不做 DTW，直接逐幀（取重疊長度）配對。
+
+        用來當作「沒有對齊」的公平對照組，這樣算出來的分數
+        才能跟正式分數 calculate_auto_similarity 直接比大小。
+        """
+        if df_std.empty or df_usr.empty:
+            return 0.0, {"feedback": "未偵測到有效動作數據", "penalty": 0}
+
+        feat_std = self.extract_features(df_std)
+        feat_usr = self.extract_features(df_usr)
+
+        min_len = min(len(feat_std), len(feat_usr))
+        path = [(i, i) for i in range(min_len)]
+
+        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
+        path_scores = []
+
+        for s, u in path:
+            diff = np.abs(feat_std[s] - feat_usr[u])
+            weighted_error = (
+                diff[0] * joint_weights[0] +
+                diff[1] * joint_weights[1] +
+                diff[2] * joint_weights[2] +
+                diff[3] * joint_weights[3]
+            )
+            score = 100 * np.exp(-2.0 * weighted_error)
+            path_scores.append(score)
+
+        path_scores = np.array(path_scores)
+        n = len(path_scores)
+
+        if n > 20:
+            trim = int(n * 0.05)
+            path_scores = path_scores[trim:n - trim]
+
+        if len(path_scores) == 0:
+            return 0.0, {"feedback": "動作比對路徑無效", "penalty": 0}
+
+        mean = np.mean(path_scores)
+        p50 = np.percentile(path_scores, 50)
+        p25 = np.percentile(path_scores, 25)
+        worst = np.min(path_scores)
+        std = np.std(path_scores)
+
+        final_score = (
+            mean * 0.7 +
+            p50 * 0.25 +
+            p25 * 0.10 +
+            worst * 0.15
+        )
+        final_score *= 1.4
+
+        if mean > 85:
+            final_score += 5
+        elif mean > 75:
+            final_score += 1
+
+        feedback, overall, penalty = self.coach.generate_feedback(
+            feat_std, feat_usr, path, None, final_score
+        )
+
+        final_score = final_score - penalty
+        final_score = float(np.clip(final_score, 0, 100))
+
+        return final_score, {
+            "mean_path_score": float(mean),
+            "p50": float(p50),
+            "p25": float(p25),
+            "min": float(worst),
+            "std": float(std),
+            "path_length": len(path),
+            "feedback": feedback,
+            "overall": overall,
+            "penalty": penalty
+        }
+    # =========================================================
+    # ▲▲▲ 新增區塊結束 ▲▲▲
+    # =========================================================
+
     # =========================
     # 計算得分曲線
     # =========================
@@ -565,7 +651,6 @@ class PoseProcessor:
         回傳:
             metrics_df: 每個樣本的對齊前/後分數、進步幅度
         """
-        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
         os.makedirs(output_dir, exist_ok=True)
 
         names, before_means, after_means = [], [], []
@@ -575,33 +660,23 @@ class PoseProcessor:
             if df_std.empty or df_usr.empty:
                 continue
 
-            feat_std = self.extract_features(df_std)
-            feat_usr = self.extract_features(df_usr)
+            # 對齊前：用跟正式評分「完全相同」的公式，只是不做 DTW（公平對照組）
+            before_score, _ = self.calculate_naive_similarity(df_std, df_usr)
 
-            _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
-
-            # 對齊前：naive 逐幀比對（取重疊長度，模擬完全不做 DTW 的情況）
-            min_len = min(len(feat_std), len(feat_usr))
-            naive_pairs = [(i, i) for i in range(min_len)]
-            before_scores = self._weighted_score_series(feat_std, feat_usr, naive_pairs, joint_weights)
-
-            # 對齊後：沿 DTW path
-            after_scores = self._weighted_score_series(feat_std, feat_usr, path, joint_weights)
-
-            before_mean = float(np.mean(before_scores))
-            after_mean = float(np.mean(after_scores))
+            # 對齊後：直接用正式評分函式，這就是使用者畫面上實際看到的分數
+            after_score, _ = self.calculate_auto_similarity(df_std, df_usr)
 
             names.append(name)
-            before_means.append(before_mean)
-            after_means.append(after_mean)
+            before_means.append(before_score)
+            after_means.append(after_score)
             rows.append({
                 "sample": name,
-                "score_before_alignment": before_mean,
-                "score_after_alignment": after_mean,
-                "improvement": after_mean - before_mean,
+                "score_before_alignment": before_score,
+                "score_after_alignment": after_score,
+                "improvement": after_score - before_score,
                 "improvement_pct": (
-                    float((after_mean - before_mean) / before_mean * 100)
-                    if before_mean > 0 else float("nan")
+                    float((after_score - before_score) / before_score * 100)
+                    if before_score > 0 else float("nan")
                 ),
             })
 
