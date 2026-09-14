@@ -638,118 +638,122 @@ class PoseProcessor:
             scores.append(100 * np.exp(-2.0 * weighted_error))
         return np.array(scores)
 
-    def _calculate_raw_score_without_formal_formula(self, feat_std, feat_usr, path):
+    def _calculate_alignment_rmse_without_formal_formula(self, feat_std, feat_usr, path=None):
         """
-        未套用正式評分公式的「實驗基準分數」。
+        真正「未套正式評分公式」的整體量化指標。
 
-        這裡刻意不使用正式系統中的：
+        這裡直接沿用 plot_alignment_proof() 的 RMSE 計算方式：
+
+        1. 對齊前：教練與使用者直接逐幀比較（i, i），取重疊長度。
+        2. 對齊後：沿 fastdtw path 配對。
+        3. 四個特徵各自計算 RMSE，再取四個 RMSE 的平均值，作為整體 RMSE。
+
+        這裡不使用正式評分系統的：
             100 * exp(-2.0 * weighted_error)
-            mean * 0.7 + p50 * 0.25 + p25 * 0.10 + worst * 0.15
-            * 1.4、bonus、AI Coach penalty
+            mean / p50 / p25 / worst 加權
+            *1.4
+            bonus
+            AI Coach penalty
 
-        而是只把加權姿勢誤差依照總權重做線性正規化：
-            raw_score = 100 * (1 - weighted_error / sum(weights))
+        因此這不是「把正式分數換一個公式」，而是直接使用原始特徵誤差
+        （RMSE）來觀察 DTW 對齊本身造成的改善。
 
-        因此：
-            誤差越小 -> 分數越接近 100
-            誤差越大 -> 分數越接近 0
-
-        對齊前與對齊後都使用完全相同的這個基準計算方式，
-        唯一差異仍然只有 path：
-            對齊前 = 逐幀 (i, i)
-            對齊後 = DTW path
-
-        這張圖是「實驗基準分數」，不是使用者畫面上的正式分數。
+        注意：RMSE 是「越低越好」，與正式分數（越高越好）方向相反。
         """
-        if len(feat_std) == 0 or len(feat_usr) == 0 or not path:
-            return 0.0
+        if len(feat_std) == 0 or len(feat_usr) == 0:
+            return float("nan"), np.full(feat_std.shape[1] if feat_std.ndim == 2 else 4, np.nan)
 
-        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
-        total_weight = float(sum(joint_weights.values()))
-        scores = []
+        n_feat = min(feat_std.shape[1], feat_usr.shape[1])
+        feature_rmses = []
 
-        for s_idx, u_idx in path:
-            s_idx = min(int(s_idx), len(feat_std) - 1)
-            u_idx = min(int(u_idx), len(feat_usr) - 1)
+        # -------------------------
+        # 對齊前：直接 (i, i)
+        # -------------------------
+        if path is None:
+            min_len = min(len(feat_std), len(feat_usr))
+            if min_len == 0:
+                return float("nan"), np.full(n_feat, np.nan)
 
-            diff = np.abs(feat_std[s_idx] - feat_usr[u_idx])
-            weighted_error = (
-                diff[0] * joint_weights[0] +
-                diff[1] * joint_weights[1] +
-                diff[2] * joint_weights[2] +
-                diff[3] * joint_weights[3]
-            )
+            for f_idx in range(n_feat):
+                diff = feat_std[:min_len, f_idx] - feat_usr[:min_len, f_idx]
+                feature_rmses.append(float(np.sqrt(np.mean(diff ** 2))))
 
-            raw_score = 100.0 * (1.0 - weighted_error / total_weight)
-            scores.append(float(np.clip(raw_score, 0.0, 100.0)))
+        # -------------------------
+        # 對齊後：沿 DTW path
+        # -------------------------
+        else:
+            if not path:
+                return float("nan"), np.full(n_feat, np.nan)
 
-        if not scores:
-            return 0.0
+            for f_idx in range(n_feat):
+                aligned_std = np.array([
+                    feat_std[min(int(s), len(feat_std) - 1), f_idx]
+                    for s, u in path
+                ])
+                aligned_usr = np.array([
+                    feat_usr[min(int(u), len(feat_usr) - 1), f_idx]
+                    for s, u in path
+                ])
+                diff = aligned_std - aligned_usr
+                feature_rmses.append(float(np.sqrt(np.mean(diff ** 2))))
 
-        scores = np.asarray(scores, dtype=float)
+        feature_rmses = np.asarray(feature_rmses, dtype=float)
+        overall_rmse = float(np.mean(feature_rmses)) if len(feature_rmses) else float("nan")
+        return overall_rmse, feature_rmses
 
-        # 和正式評分一樣排除前後 5% 的極端路徑點，
-        # 但不套用正式公式的百分位加權、倍率、bonus、AI Coach penalty。
-        n = len(scores)
-        if n > 20:
-            trim = int(n * 0.05)
-            if n - 2 * trim > 0:
-                scores = scores[trim:n - trim]
-
-        return float(np.clip(np.mean(scores), 0.0, 100.0))
-
-    def calculate_raw_similarity_without_formal_formula(self, df_std, df_usr, use_dtw=True):
+    def calculate_raw_alignment_rmse(self, df_std, df_usr, use_dtw=False):
         """
-        計算「未套正式評分公式」的整體實驗基準分數。
+        計算「未套正式評分公式」的整體 RMSE。
 
-        use_dtw=True：對齊後，使用 DTW path。
-        use_dtw=False：對齊前，使用逐幀 (i, i) path。
+        use_dtw=False：對齊前，直接逐幀 (i, i) 比較。
+        use_dtw=True ：對齊後，使用 fastdtw path 比較。
 
-        注意：這個分數只用於實驗比較，不等於使用者畫面上的正式最終分數。
+        回傳：
+            overall_rmse, feature_rmses
+
+        RMSE 越低代表兩段動作越接近。
         """
         if df_std.empty or df_usr.empty:
-            return 0.0
+            return float("nan"), np.full(4, np.nan)
 
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
 
         if use_dtw:
             _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
-        else:
-            min_len = min(len(feat_std), len(feat_usr))
-            path = [(i, i) for i in range(min_len)]
+            return self._calculate_alignment_rmse_without_formal_formula(
+                feat_std, feat_usr, path=path
+            )
 
-        return self._calculate_raw_score_without_formal_formula(
-            feat_std, feat_usr, path
+        return self._calculate_alignment_rmse_without_formal_formula(
+            feat_std, feat_usr, path=None
         )
 
     def plot_overall_score_proof(self, sample_pairs,
                                   output_dir="alignment_proof_output",
                                   tag="overall_proof"):
         """
-        產生兩張「整體評分系統」對照圖，並上下放在同一張 PNG：
+        產生一張 PNG，裡面上下放兩組「對齊前 vs 對齊後」實驗結果：
 
-        上圖：未套正式評分公式
-            - 對齊前：逐幀硬比對 + 線性正規化基準分數
-            - 對齊後：DTW + 同一套線性正規化基準分數
+        上圖：真正未套正式評分公式
+            - 對齊前：直接逐幀比較，使用原始特徵 RMSE
+            - 對齊後：DTW path 比較，使用同一個原始特徵 RMSE
+            - RMSE 越低越好
 
-        下圖：套用正式評分公式
-            - 對齊前：逐幀硬比對 + 完整正式評分公式
-            - 對齊後：DTW + 完整正式評分公式
+        下圖：正式評分系統
+            - 對齊前：calculate_naive_similarity()
+            - 對齊後：calculate_auto_similarity()
+            - 兩者使用完全相同的正式評分公式，只改變配對 path
+            - 分數越高越好
 
-        兩張圖的目的不同：
-            1. 上圖：單純觀察 DTW 對原始姿勢相似度的影響。
-            2. 下圖：確認這個改善是否能反映到使用者真正看到的正式分數。
-
-        特別注意：正式分數部分仍然直接呼叫
-        calculate_naive_similarity() 與 calculate_auto_similarity()，
-        因此不會改變原本使用者畫面上的正式評分邏輯。
+        上圖完全沿用使用者原本 plot_alignment_proof() 的 RMSE 定義，
+        不再另外創造一個「線性正規化的假分數」。
         """
         os.makedirs(output_dir, exist_ok=True)
 
         names = []
-        raw_before_scores = []
-        raw_after_scores = []
+        rmse_before_scores = []
+        rmse_after_scores = []
         formal_before_scores = []
         formal_after_scores = []
         rows = []
@@ -759,36 +763,52 @@ class PoseProcessor:
                 continue
 
             # =====================================================
-            # 第一組：未套正式公式
+            # 第一組：真正未套正式公式
+            # 直接使用使用者原本 plot_alignment_proof() 的 RMSE
             # =====================================================
-            raw_before = self.calculate_raw_similarity_without_formal_formula(
+            rmse_before, feature_rmse_before = self.calculate_raw_alignment_rmse(
                 df_std, df_usr, use_dtw=False
             )
-            raw_after = self.calculate_raw_similarity_without_formal_formula(
+            rmse_after, feature_rmse_after = self.calculate_raw_alignment_rmse(
                 df_std, df_usr, use_dtw=True
             )
 
             # =====================================================
-            # 第二組：正式公式（完全維持原本正式評分）
+            # 第二組：正式公式
+            # 完全維持原本正式評分，不改動
             # =====================================================
             formal_before, _ = self.calculate_naive_similarity(df_std, df_usr)
             formal_after, _ = self.calculate_auto_similarity(df_std, df_usr)
 
+            if np.isnan(rmse_before) or np.isnan(rmse_after):
+                continue
+
             names.append(name)
-            raw_before_scores.append(raw_before)
-            raw_after_scores.append(raw_after)
+            rmse_before_scores.append(rmse_before)
+            rmse_after_scores.append(rmse_after)
             formal_before_scores.append(formal_before)
             formal_after_scores.append(formal_after)
 
+            rmse_improvement = rmse_before - rmse_after
+            rmse_improvement_pct = (
+                rmse_improvement / rmse_before * 100
+                if rmse_before > 0 else float("nan")
+            )
+
             rows.append({
                 "sample": name,
-                "raw_score_before_no_formula": raw_before,
-                "raw_score_after_no_formula": raw_after,
-                "raw_improvement": raw_after - raw_before,
-                "raw_improvement_pct": (
-                    float((raw_after - raw_before) / raw_before * 100)
-                    if raw_before > 0 else float("nan")
-                ),
+                "rmse_before_no_formula": rmse_before,
+                "rmse_after_no_formula": rmse_after,
+                "rmse_improvement": rmse_improvement,
+                "rmse_improvement_pct": rmse_improvement_pct,
+                "elbow_rmse_before": feature_rmse_before[0] if len(feature_rmse_before) > 0 else np.nan,
+                "speed_rmse_before": feature_rmse_before[1] if len(feature_rmse_before) > 1 else np.nan,
+                "height_rmse_before": feature_rmse_before[2] if len(feature_rmse_before) > 2 else np.nan,
+                "direction_rmse_before": feature_rmse_before[3] if len(feature_rmse_before) > 3 else np.nan,
+                "elbow_rmse_after": feature_rmse_after[0] if len(feature_rmse_after) > 0 else np.nan,
+                "speed_rmse_after": feature_rmse_after[1] if len(feature_rmse_after) > 1 else np.nan,
+                "height_rmse_after": feature_rmse_after[2] if len(feature_rmse_after) > 2 else np.nan,
+                "direction_rmse_after": feature_rmse_after[3] if len(feature_rmse_after) > 3 else np.nan,
                 "formal_score_before": formal_before,
                 "formal_score_after": formal_after,
                 "formal_improvement": formal_after - formal_before,
@@ -805,38 +825,37 @@ class PoseProcessor:
         x = np.arange(len(names))
         width = 0.35
 
-        # =========================================================
-        # 上下兩張圖：上 = 未套公式，下 = 正式公式
-        # =========================================================
-        fig, axes = plt.subplots(2, 1, figsize=(max(8, len(names) * 1.7), 11))
+        fig, axes = plt.subplots(
+            2, 1,
+            figsize=(max(8, len(names) * 1.7), 11)
+        )
 
-        # ---------------------------------------------------------
-        # 上圖：未套正式公式
-        # ---------------------------------------------------------
+        # =========================================================
+        # 上圖：沒有正式評分公式，直接看原始 RMSE
+        # =========================================================
         ax_raw = axes[0]
         bars_raw_before = ax_raw.bar(
             x - width / 2,
-            raw_before_scores,
+            rmse_before_scores,
             width,
             label="Before Alignment (No DTW)",
             color="#d62728",
         )
         bars_raw_after = ax_raw.bar(
             x + width / 2,
-            raw_after_scores,
+            rmse_after_scores,
             width,
             label="After Alignment (DTW)",
             color="#2ca02c",
         )
 
-        ax_raw.set_ylabel("Baseline Similarity Score (0-100)")
+        ax_raw.set_ylabel("Raw Feature RMSE (Lower is Better)")
         ax_raw.set_title(
-            "Overall Scoring System — WITHOUT Formal Scoring Formula\n"
-            "實驗基準分數：只比較姿勢誤差，觀察 DTW 本身的影響"
+            "Overall Alignment Error — WITHOUT Formal Scoring Formula\n"
+            "未套公式：直接使用原始四項特徵的 RMSE，觀察 DTW 本身的影響"
         )
         ax_raw.set_xticks(x)
         ax_raw.set_xticklabels(names, rotation=20, ha="right")
-        ax_raw.set_ylim(0, 100)
         ax_raw.legend()
         ax_raw.grid(axis="y", alpha=0.3)
 
@@ -844,7 +863,7 @@ class PoseProcessor:
             for bar in bars:
                 h = bar.get_height()
                 ax_raw.annotate(
-                    f"{h:.1f}",
+                    f"{h:.4f}",
                     xy=(bar.get_x() + bar.get_width() / 2, h),
                     xytext=(0, 3),
                     textcoords="offset points",
@@ -852,26 +871,27 @@ class PoseProcessor:
                     fontsize=9,
                 )
 
-        avg_raw_before = float(np.mean(raw_before_scores))
-        avg_raw_after = float(np.mean(raw_after_scores))
-        raw_improve = avg_raw_after - avg_raw_before
-        raw_improve_pct = (
-            raw_improve / avg_raw_before * 100
-            if avg_raw_before > 0 else float("nan")
+        avg_rmse_before = float(np.mean(rmse_before_scores))
+        avg_rmse_after = float(np.mean(rmse_after_scores))
+        rmse_improve = avg_rmse_before - avg_rmse_after
+        rmse_improve_pct = (
+            rmse_improve / avg_rmse_before * 100
+            if avg_rmse_before > 0 else float("nan")
         )
 
         ax_raw.text(
             0.5, -0.18,
-            f"Average: Before={avg_raw_before:.2f}   After={avg_raw_after:.2f}   "
-            f"Improvement={raw_improve:+.2f} ({raw_improve_pct:+.1f}%)",
+            f"Average RMSE: Before={avg_rmse_before:.4f}   "
+            f"After={avg_rmse_after:.4f}   "
+            f"Reduction={rmse_improve:+.4f} ({rmse_improve_pct:+.1f}%)",
             transform=ax_raw.transAxes,
             ha="center",
             fontsize=10,
         )
 
-        # ---------------------------------------------------------
+        # =========================================================
         # 下圖：正式評分公式
-        # ---------------------------------------------------------
+        # =========================================================
         ax_formal = axes[1]
         bars_formal_before = ax_formal.bar(
             x - width / 2,
@@ -921,7 +941,8 @@ class PoseProcessor:
 
         ax_formal.text(
             0.5, -0.18,
-            f"Average: Before={avg_formal_before:.2f}   After={avg_formal_after:.2f}   "
+            f"Average: Before={avg_formal_before:.2f}   "
+            f"After={avg_formal_after:.2f}   "
             f"Improvement={formal_improve:+.2f} ({formal_improve_pct:+.1f}%)",
             transform=ax_formal.transAxes,
             ha="center",
@@ -929,7 +950,8 @@ class PoseProcessor:
         )
 
         fig.suptitle(
-            f"整體評分系統：未套公式 vs 套正式公式 / 對齊前 vs 對齊後 [{tag}]",
+            f"整體比較：未套正式公式（原始 RMSE） vs 正式評分 / "
+            f"對齊前 vs 對齊後 [{tag}]",
             fontsize=14,
             y=0.995,
         )
@@ -950,9 +972,9 @@ class PoseProcessor:
         )
         metrics_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
 
-        print(f"✅ 整體評分雙圖已存至: {img_path}")
-        print(f"   上圖 = 未套正式公式的實驗基準分數")
-        print(f"   下圖 = 套正式公式的使用者最終分數")
+        print(f"✅ 整體雙圖已存至: {img_path}")
+        print("   上圖 = 使用原本 plot_alignment_proof() 邏輯的原始 RMSE（未套正式公式）")
+        print("   下圖 = 使用正式評分公式的最終分數")
         print(f"   CSV = {csv_path}")
         print(metrics_df.to_string(index=False))
 
