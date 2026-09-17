@@ -514,17 +514,6 @@ class PoseProcessor:
         畫出「對齊前 vs 對齊後」的量化比較圖，並存成 CSV 量化表。
 
         只存到本機資料夾，不回傳前端，適合當作實驗數據 / 報告佐證。
-
-        參數:
-            df_std: 教練標準動作 DataFrame（跟其他方法輸入格式一致）
-            df_usr: 使用者動作 DataFrame
-            output_dir: 輸出資料夾（會自動建立）
-            tag: 這次比對的名稱，會用在檔名上（例如使用者ID、動作代碼）
-            feature_names: extract_features 輸出的四個維度對應的中文名稱
-
-        回傳:
-            metrics_df: 每個特徵對齊前後的 RMSE / 對齊後相關係數
-            (若失敗則回傳 None)
         """
         if df_std.empty or df_usr.empty:
             print("⚠️ 輸入資料為空，無法繪製對齊比較圖")
@@ -540,14 +529,13 @@ class PoseProcessor:
         n_feat = feat_std.shape[1]
         fig, axes = plt.subplots(n_feat, 2, figsize=(14, 3.2 * n_feat))
         if n_feat == 1:
-            axes = np.array([axes])  # 確保可用 axes[i, 0] / axes[i, 1] 的方式索引
+            axes = np.array([axes])
 
         metrics_rows = []
 
         for f_idx in range(n_feat):
             name = feature_names[f_idx] if f_idx < len(feature_names) else f"feature_{f_idx}"
 
-            # ---- 對齊前：直接逐幀比對（取重疊長度，模擬「沒有 DTW」的情況）----
             raw_std = feat_std[:, f_idx]
             raw_usr = feat_usr[:, f_idx]
             min_len = min(len(raw_std), len(raw_usr))
@@ -564,7 +552,6 @@ class PoseProcessor:
             ax_before.legend(fontsize=8)
             ax_before.grid(alpha=0.3)
 
-            # ---- 對齊後：沿 fastdtw path 取值 ----
             aligned_std = np.array([feat_std[min(s, len(feat_std) - 1), f_idx] for s, u in path])
             aligned_usr = np.array([feat_usr[min(u, len(feat_usr) - 1), f_idx] for s, u in path])
             rmse_after = float(np.sqrt(np.mean((aligned_std - aligned_usr) ** 2)))
@@ -620,10 +607,6 @@ class PoseProcessor:
     # ▼▼▼ 新增：整體評分系統 對齊前 vs 對齊後 證明 ▼▼▼
     # =========================================================
     def _weighted_score_series(self, feat_std, feat_usr, index_pairs, joint_weights):
-        """
-        給一串 (s_idx, u_idx) 配對，套用跟 calculate_auto_similarity
-        完全相同的加權公式，算出每一組的分數。
-        """
         scores = []
         for s_idx, u_idx in index_pairs:
             s_idx = min(s_idx, len(feat_std) - 1)
@@ -638,134 +621,11 @@ class PoseProcessor:
             scores.append(100 * np.exp(-2.0 * weighted_error))
         return np.array(scores)
 
-    def _calculate_alignment_rmse_without_formal_formula(self, feat_std, feat_usr, path=None):
-        """
-        真正「未套正式評分公式」的整體量化指標。
-
-        這裡直接沿用 plot_alignment_proof() 的 RMSE 計算方式：
-
-        1. 對齊前：教練與使用者直接逐幀比較（i, i），取重疊長度。
-        2. 對齊後：沿 fastdtw path 配對。
-        3. 四個特徵各自計算 RMSE，再取四個 RMSE 的平均值，作為整體 RMSE。
-
-        這裡不使用正式評分系統的：
-            100 * exp(-2.0 * weighted_error)
-            mean / p50 / p25 / worst 加權
-            *1.4
-            bonus
-            AI Coach penalty
-
-        因此這不是「把正式分數換一個公式」，而是直接使用原始特徵誤差
-        （RMSE）來觀察 DTW 對齊本身造成的改善。
-
-        注意：RMSE 是「越低越好」，與正式分數（越高越好）方向相反。
-        """
-        if len(feat_std) == 0 or len(feat_usr) == 0:
-            return float("nan"), np.full(feat_std.shape[1] if feat_std.ndim == 2 else 4, np.nan)
-
-        n_feat = min(feat_std.shape[1], feat_usr.shape[1])
-        feature_rmses = []
-
-        # -------------------------
-        # 對齊前：直接 (i, i)
-        # -------------------------
-        if path is None:
-            min_len = min(len(feat_std), len(feat_usr))
-            if min_len == 0:
-                return float("nan"), np.full(n_feat, np.nan)
-
-            for f_idx in range(n_feat):
-                diff = feat_std[:min_len, f_idx] - feat_usr[:min_len, f_idx]
-                feature_rmses.append(float(np.sqrt(np.mean(diff ** 2))))
-
-        # -------------------------
-        # 對齊後：沿 DTW path
-        # -------------------------
-        else:
-            if not path:
-                return float("nan"), np.full(n_feat, np.nan)
-
-            for f_idx in range(n_feat):
-                aligned_std = np.array([
-                    feat_std[min(int(s), len(feat_std) - 1), f_idx]
-                    for s, u in path
-                ])
-                aligned_usr = np.array([
-                    feat_usr[min(int(u), len(feat_usr) - 1), f_idx]
-                    for s, u in path
-                ])
-                diff = aligned_std - aligned_usr
-                feature_rmses.append(float(np.sqrt(np.mean(diff ** 2))))
-
-        feature_rmses = np.asarray(feature_rmses, dtype=float)
-        overall_rmse = float(np.mean(feature_rmses)) if len(feature_rmses) else float("nan")
-        return overall_rmse, feature_rmses
-
-    def calculate_raw_alignment_rmse(self, df_std, df_usr, use_dtw=False):
-        """
-        計算「未套正式評分公式」的整體 RMSE。
-
-        use_dtw=False：對齊前，直接逐幀 (i, i) 比較。
-        use_dtw=True ：對齊後，使用 fastdtw path 比較。
-
-        回傳：
-            overall_rmse, feature_rmses
-
-        RMSE 越低代表兩段動作越接近。
-        """
-        if df_std.empty or df_usr.empty:
-            return float("nan"), np.full(4, np.nan)
-
-        feat_std = self.extract_features(df_std)
-        feat_usr = self.extract_features(df_usr)
-
-        if use_dtw:
-            _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
-            return self._calculate_alignment_rmse_without_formal_formula(
-                feat_std, feat_usr, path=path
-            )
-
-        return self._calculate_alignment_rmse_without_formal_formula(
-            feat_std, feat_usr, path=None
-        )
-
-    def _calculate_raw_rmse_without_formal_formula(self, feat_std, feat_usr, path):
-        """
-        未套用正式評分公式的整體誤差。
-
-        這裡不使用正式評分的：
-            exp(-2 * weighted_error)
-            mean / p50 / p25 / worst
-            *1.4、bonus、AI Coach penalty
-
-        只計算四個特徵在指定配對路徑上的 RMSE，最後取四個特徵
-        RMSE 的平均值作為 overall RMSE。
-        RMSE 越低代表差異越小。
-        """
-        if len(feat_std) == 0 or len(feat_usr) == 0 or not path:
-            return float("nan"), np.full(4, np.nan)
-
-        feature_rmses = []
-        for f_idx in range(feat_std.shape[1]):
-            diffs = []
-            for s_idx, u_idx in path:
-                s_idx = min(s_idx, len(feat_std) - 1)
-                u_idx = min(u_idx, len(feat_usr) - 1)
-                diffs.append(feat_std[s_idx, f_idx] - feat_usr[u_idx, f_idx])
-
-            feature_rmses.append(float(np.sqrt(np.mean(np.square(diffs)))))
-
-        feature_rmses = np.asarray(feature_rmses, dtype=float)
-        return float(np.mean(feature_rmses)), feature_rmses
-
     def _calculate_original_score_without_formal_formula(self, feat_std, feat_usr, path):
         """
         原本的「基礎分數」：只計算每一個配對點的 similarity score，
         再取平均；不套用正式最終分數的 mean/p50/p25/worst 混合、1.4x、
         bonus 與 AI Coach penalty。
-
-        這不是把 RMSE 線性換算成 0~100，而是直接使用系統原本的
-        per-path similarity score 定義，因此可以和正式最終分數清楚區分。
         """
         if len(feat_std) == 0 or len(feat_usr) == 0 or not path:
             return float("nan")
@@ -799,27 +659,22 @@ class PoseProcessor:
                                   output_dir="alignment_proof_output",
                                   tag="overall_proof"):
         """
-        產生一張三層實驗圖，完全保留原本的「分數」概念，同時保留 RMSE / r
-        等量化指標：
+        產生一張三層實驗圖：
 
         第一層：量化指標
             - 四個特徵的 RMSE：對齊前 vs DTW 對齊後
             - 四個特徵的 correlation：對齊前 vs DTW 對齊後
-            - Overall RMSE：四個特徵 RMSE 平均
 
         第二層：原本的基礎分數（未套正式最終評分公式）
-            - 只取 per-path similarity score 的平均
-            - 不套 mean/p50/p25/worst 混合、1.4x、bonus、AI penalty
 
-        第三層：正式最終分數（完整公式）
-            - Before = calculate_naive_similarity()
-            - After  = calculate_auto_similarity()
-            - 使用目前使用者畫面上的完整正式評分流程
+        第三層：正式最終分數（完整公式，等於使用者畫面上看到的分數）
 
-        因此圖的結構是：
-            「量化指標」→「原本基礎分數」→「正式最終分數」
+        三層全部統一用「紅色＝對齊前 / 綠色＝對齊後」配色。
         """
         os.makedirs(output_dir, exist_ok=True)
+
+        COLOR_BEFORE = "#d62728"  # 紅色：對齊前
+        COLOR_AFTER = "#2ca02c"   # 綠色：對齊後
 
         names = []
         raw_before, raw_after = [], []
@@ -943,9 +798,8 @@ class PoseProcessor:
         fig, axes = plt.subplots(3, 1, figsize=(max(10, len(names) * 1.8), 16))
 
         # =====================================================
-        # 第一層：量化指標（RMSE + correlation）
+        # 第一層：量化指標（RMSE + correlation）— 紅／綠配色
         # =====================================================
-        # 用所有樣本的平均值呈現四個特徵；CSV 仍保留每個 sample 的完整數值。
         mean_before_rmse = np.nanmean(np.asarray([m[0] for m in feature_metrics], dtype=float), axis=0)
         mean_after_rmse = np.nanmean(np.asarray([m[1] for m in feature_metrics], dtype=float), axis=0)
         mean_before_corr = np.nanmean(np.asarray([m[2] for m in feature_metrics], dtype=float), axis=0)
@@ -953,8 +807,8 @@ class PoseProcessor:
 
         fx = np.arange(len(feature_names))
         fwidth = 0.34
-        b1 = axes[0].bar(fx - fwidth/2, mean_before_rmse, fwidth, label="對齊前 RMSE")
-        b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="對齊後 RMSE")
+        b1 = axes[0].bar(fx - fwidth/2, mean_before_rmse, fwidth, label="對齊前 RMSE", color=COLOR_BEFORE)
+        b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="對齊後 RMSE", color=COLOR_AFTER)
         axes[0].set_xticks(fx)
         axes[0].set_xticklabels(feature_names)
         axes[0].set_ylabel("RMSE（越低越好）")
@@ -982,12 +836,12 @@ class PoseProcessor:
         )
 
         # =====================================================
-        # 第二層：原本基礎分數（未套正式最終公式）
+        # 第二層：原本基礎分數（未套正式最終公式）— 紅／綠配色
         # =====================================================
         b3 = axes[1].bar(x - width/2, original_score_before, width,
-                         label="對齊前（No DTW）")
+                         label="對齊前（No DTW）", color=COLOR_BEFORE)
         b4 = axes[1].bar(x + width/2, original_score_after, width,
-                         label="對齊後（DTW）")
+                         label="對齊後（DTW）", color=COLOR_AFTER)
         axes[1].set_ylabel("原本基礎分數（0–100）")
         axes[1].set_ylim(0, 100)
         axes[1].set_title(
@@ -1005,12 +859,12 @@ class PoseProcessor:
                                  xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
 
         # =====================================================
-        # 第三層：正式最終分數
+        # 第三層：正式最終分數 — 紅／綠配色
         # =====================================================
         b5 = axes[2].bar(x - width/2, formal_before, width,
-                         label="對齊前（No DTW / 正式公式）")
+                         label="對齊前（No DTW / 正式公式）", color=COLOR_BEFORE)
         b6 = axes[2].bar(x + width/2, formal_after, width,
-                         label="對齊後（DTW / 正式公式）")
+                         label="對齊後（DTW / 正式公式）", color=COLOR_AFTER)
         axes[2].set_ylabel("正式最終分數（0–100）")
         axes[2].set_ylim(0, 100)
         axes[2].set_title(
@@ -1067,28 +921,16 @@ class PoseProcessor:
     # =========================================================
     # ▲▲▲ 新增區塊結束 ▲▲▲
     # =========================================================
+
+
 def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr,
                                        output_dir="alignment_proof_output", tag=None):
     """
     在 Streamlit 頁面裡一行呼叫，就能：
       1. 呼叫 processor.plot_alignment_proof() 產生圖檔 + CSV
-         （若沒給 tag，會自動用「時間戳記」命名，例如 20260915_143022，
-         這樣每次跑都會是新檔案，不會把前一次的結果覆蓋掉）
-      2. 用 st.image() 把圖顯示在頁面上（因為 Streamlit Cloud 的檔案系統
-         本機看不到，要靠這個才能親眼確認圖有沒有畫出來）
-      3. 提供下載按鈕，讓你能把這次的圖存回本機
+      2. 用 st.image() 把圖顯示在頁面上
+      3. 提供下載按鈕
       4. 用 st.dataframe() 顯示量化指標表
-
-    用法（在你的 Streamlit 頁面，例如 pages/xxx.py）：
-
-        from pose_processor import PoseProcessor, show_alignment_proof_in_streamlit
-
-        processor = PoseProcessor()
-        show_alignment_proof_in_streamlit(processor, df_std, df_usr)
-
-    注意：這個函式內部才 import streamlit，所以 pose_processor.py
-    本身仍然可以在非 Streamlit 環境（例如純命令列腳本）下正常使用，
-    不會因為缺少 streamlit 套件而整支檔案 import 失敗。
     """
     import streamlit as st
     from datetime import datetime
@@ -1133,15 +975,7 @@ def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr
 
 
 def show_alignment_proof_history(output_dir="alignment_proof_output"):
-    """
-    列出 output_dir 裡「過去所有」跑過的對比圖，
-    每一張都附下載按鈕 —— 不用重新跑一次也能拿到舊的結果。
-
-    用法（放在頁面任何位置，通常放在最下面當作歷史紀錄區）：
-
-        from pose_processor import show_alignment_proof_history
-        show_alignment_proof_history()
-    """
+    """列出歷史所有對比圖，各自附下載按鈕"""
     import streamlit as st
 
     if not os.path.isdir(output_dir):
@@ -1150,7 +984,7 @@ def show_alignment_proof_history(output_dir="alignment_proof_output"):
 
     png_files = sorted(
         [f for f in os.listdir(output_dir) if f.endswith("_alignment_proof.png")],
-        reverse=True,  # 最新的排前面
+        reverse=True,
     )
 
     if not png_files:
@@ -1180,34 +1014,17 @@ def show_alignment_proof_history(output_dir="alignment_proof_output"):
                             "下載指標表", f, file_name=f"{tag}_alignment_metrics.csv",
                             mime="text/csv", key=f"hist_csv_{tag}",
                         )
-# =========================================================
-# ▲▲▲ 新增結束 ▲▲▲
-# =========================================================
 
 
-# =========================================================
-# ▼▼▼ 新增：整體評分系統證明的 Streamlit 顯示包裝 ▼▼▼
-# =========================================================
 def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pairs,
                                            output_dir="alignment_proof_output", tag=None):
     """
-    在 Streamlit 頁面顯示「整體評分系統：對齊前 vs 對齊後」的長條圖比較，
-    同時顯示「未套正式公式的實驗基準分數」與「正式最終分數」，用來比較 DTW 對整體評分的影響。
+    在 Streamlit 頁面顯示「整體評分系統：對齊前 vs 對齊後」的三層長條圖比較。
 
     用法（單一影片測試）：
         show_overall_score_proof_in_streamlit(
             proc,
             [("這次分析", df_std_action, df_usr_action)]
-        )
-
-    用法（多筆測試，證明效果穩定）：
-        show_overall_score_proof_in_streamlit(
-            proc,
-            [
-                ("使用者A", df_std_a, df_usr_a),
-                ("使用者B", df_std_b, df_usr_b),
-                ("使用者C", df_std_c, df_usr_c),
-            ]
         )
     """
     import streamlit as st
@@ -1245,6 +1062,3 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
         )
 
     return metrics_df
-# =========================================================
-# ▲▲▲ 新增結束 ▲▲▲
-# =========================================================
