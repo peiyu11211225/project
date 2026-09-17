@@ -811,7 +811,7 @@ class PoseProcessor:
         b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="after RMSE", color=COLOR_AFTER)
         axes[0].set_xticks(fx)
         axes[0].set_xticklabels(feature_names)
-        axes[0].set_ylabel("RMSE（Lower is Better）")
+        axes[0].set_ylabel("RMSE (Lower is Better)")
         axes[0].set_title("Quantitative Metrics: RMSE and Correlation")
         axes[0].legend(loc="upper left")
         axes[0].grid(axis="y", alpha=0.3)
@@ -831,7 +831,7 @@ class PoseProcessor:
         axes[0].text(
             0.5, -0.24,
             f"Overall RMSE: {avg_rmse_before:.4f} → {avg_rmse_after:.4f}  "
-            f"（Change {(avg_rmse_before-avg_rmse_after):+.4f}）\n{corr_text}",
+            f" (Change {(avg_rmse_before-avg_rmse_after):+.4f})\n{corr_text}",
             transform=axes[0].transAxes, ha="center", fontsize=9
         )
 
@@ -839,10 +839,10 @@ class PoseProcessor:
         # 第二層：原本基礎分數（未套正式最終公式）— 紅／綠配色
         # =====================================================
         b3 = axes[1].bar(x - width/2, original_score_before, width,
-                         label="before（No DTW）", color=COLOR_BEFORE)
+                         label="before (No DTW)", color=COLOR_BEFORE)
         b4 = axes[1].bar(x + width/2, original_score_after, width,
-                         label="after（DTW）", color=COLOR_AFTER)
-        axes[1].set_ylabel("Base Similarity Score（0–100）")
+                         label="after (DTW)", color=COLOR_AFTER)
+        axes[1].set_ylabel("Base Similarity Score 0–100")
         axes[1].set_ylim(0, 100)
         axes[1].set_title(
             "Base Similarity Score"
@@ -862,10 +862,10 @@ class PoseProcessor:
         # 第三層：正式最終分數 — 紅／綠配色
         # =====================================================
         b5 = axes[2].bar(x - width/2, formal_before, width,
-                         label="before（No DTW / 正式公式）", color=COLOR_BEFORE)
+                         label="before (No DTW)", color=COLOR_BEFORE)
         b6 = axes[2].bar(x + width/2, formal_after, width,
-                         label="after（DTW / 正式公式）", color=COLOR_AFTER)
-        axes[2].set_ylabel("Final Score（0–100）")
+                         label="after (DTW)", color=COLOR_AFTER)
+        axes[2].set_ylabel("Final Score 0–100")
         axes[2].set_ylim(0, 100)
         axes[2].set_title(
             "Final Score"
