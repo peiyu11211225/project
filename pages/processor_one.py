@@ -508,7 +508,7 @@ class PoseProcessor:
     def plot_alignment_proof(self, df_std, df_usr,
                               output_dir="alignment_proof_output",
                               tag="sample",
-                              feature_names=("手肘夾角", "手腕速度", "擊球高度", "揮拍方向")):
+                              feature_names=("Elbow Angle", "Wrist Speed", "Hit Height", "Swing Direction")):
         """
         用跟 calculate_auto_similarity 完全相同的特徵抽取方式與 fastdtw 呼叫，
         畫出「對齊前 vs 對齊後」的量化比較圖，並存成 CSV 量化表。
@@ -546,9 +546,9 @@ class PoseProcessor:
             )
 
             ax_before = axes[f_idx, 0]
-            ax_before.plot(raw_std, label="教練", color="#1f77b4", linewidth=1.8)
-            ax_before.plot(raw_usr, label="使用者", color="#ff7f0e", linewidth=1.8)
-            ax_before.set_title(f"{name} - 對齊前 (RMSE={rmse_before:.3f}, r={corr_before:.2f})")
+            ax_before.plot(raw_std, label="Coach", color="#1f77b4", linewidth=1.8)
+            ax_before.plot(raw_usr, label="User", color="#ff7f0e", linewidth=1.8)
+            ax_before.set_title(f"{name} - before (RMSE={rmse_before:.3f}, r={corr_before:.2f})")
             ax_before.legend(fontsize=8)
             ax_before.grid(alpha=0.3)
 
@@ -561,9 +561,9 @@ class PoseProcessor:
             )
 
             ax_after = axes[f_idx, 1]
-            ax_after.plot(aligned_std, label="教練 (對齊後)", color="#1f77b4", linewidth=1.8)
-            ax_after.plot(aligned_usr, label="使用者 (對齊後)", color="#ff7f0e", linewidth=1.8)
-            ax_after.set_title(f"{name} - 對齊後 (RMSE={rmse_after:.3f}, r={corr_after:.2f})")
+            ax_after.plot(aligned_std, label="Coach (before)", color="#1f77b4", linewidth=1.8)
+            ax_after.plot(aligned_usr, label="User (after)", color="#ff7f0e", linewidth=1.8)
+            ax_after.set_title(f"{name} - after (RMSE={rmse_after:.3f}, r={corr_after:.2f})")
             ax_after.legend(fontsize=8)
             ax_after.grid(alpha=0.3)
 
@@ -580,7 +580,7 @@ class PoseProcessor:
             })
 
         fig.suptitle(
-            f"DTW 對齊前 vs 對齊後 量化比較 [{tag}]\n"
+            f"DTW before vs after comparison [{tag}]\n"
             f"path_length={len(path)}, dtw_distance={distance:.2f}",
             fontsize=13
         )
@@ -683,7 +683,7 @@ class PoseProcessor:
         feature_metrics = []
         rows = []
 
-        feature_names = ("手肘夾角", "手腕速度", "擊球高度", "揮拍方向")
+        feature_names = ("Elbow Angle", "Wrist Speed", "Hit Height", "Swing Direction")
         feature_keys = ("elbow_angle", "wrist_speed", "hit_height", "swing_direction")
 
         for name, df_std, df_usr in sample_pairs:
@@ -807,12 +807,12 @@ class PoseProcessor:
 
         fx = np.arange(len(feature_names))
         fwidth = 0.34
-        b1 = axes[0].bar(fx - fwidth/2, mean_before_rmse, fwidth, label="對齊前 RMSE", color=COLOR_BEFORE)
-        b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="對齊後 RMSE", color=COLOR_AFTER)
+        b1 = axes[0].bar(fx - fwidth/2, mean_before_rmse, fwidth, label="before RMSE", color=COLOR_BEFORE)
+        b2 = axes[0].bar(fx + fwidth/2, mean_after_rmse, fwidth, label="after RMSE", color=COLOR_AFTER)
         axes[0].set_xticks(fx)
         axes[0].set_xticklabels(feature_names)
-        axes[0].set_ylabel("RMSE（越低越好）")
-        axes[0].set_title("量化指標：各特徵 RMSE + Correlation")
+        axes[0].set_ylabel("RMSE（Lower is Better）")
+        axes[0].set_title("Quantitative Metrics: RMSE and Correlation")
         axes[0].legend(loc="upper left")
         axes[0].grid(axis="y", alpha=0.3)
 
@@ -831,7 +831,7 @@ class PoseProcessor:
         axes[0].text(
             0.5, -0.24,
             f"Overall RMSE: {avg_rmse_before:.4f} → {avg_rmse_after:.4f}  "
-            f"（下降 {(avg_rmse_before-avg_rmse_after):+.4f}）\n{corr_text}",
+            f"（Change {(avg_rmse_before-avg_rmse_after):+.4f}）\n{corr_text}",
             transform=axes[0].transAxes, ha="center", fontsize=9
         )
 
@@ -839,14 +839,14 @@ class PoseProcessor:
         # 第二層：原本基礎分數（未套正式最終公式）— 紅／綠配色
         # =====================================================
         b3 = axes[1].bar(x - width/2, original_score_before, width,
-                         label="對齊前（No DTW）", color=COLOR_BEFORE)
+                         label="before（No DTW）", color=COLOR_BEFORE)
         b4 = axes[1].bar(x + width/2, original_score_after, width,
-                         label="對齊後（DTW）", color=COLOR_AFTER)
-        axes[1].set_ylabel("原本基礎分數（0–100）")
+                         label="after（DTW）", color=COLOR_AFTER)
+        axes[1].set_ylabel("Base Similarity Score（0–100）")
         axes[1].set_ylim(0, 100)
         axes[1].set_title(
-            "原本分數：未套正式最終評分公式\n"
-            "per-path similarity score 取平均（未加入最終加權、1.4x、bonus、AI penalty）"
+            "Base Similarity Score"
+            "per-path similarity score"
         )
         axes[1].set_xticks(x)
         axes[1].set_xticklabels(names, rotation=20, ha="right")
@@ -862,13 +862,13 @@ class PoseProcessor:
         # 第三層：正式最終分數 — 紅／綠配色
         # =====================================================
         b5 = axes[2].bar(x - width/2, formal_before, width,
-                         label="對齊前（No DTW / 正式公式）", color=COLOR_BEFORE)
+                         label="before（No DTW / 正式公式）", color=COLOR_BEFORE)
         b6 = axes[2].bar(x + width/2, formal_after, width,
-                         label="對齊後（DTW / 正式公式）", color=COLOR_AFTER)
-        axes[2].set_ylabel("正式最終分數（0–100）")
+                         label="after（DTW / 正式公式）", color=COLOR_AFTER)
+        axes[2].set_ylabel("Final Score（0–100）")
         axes[2].set_ylim(0, 100)
         axes[2].set_title(
-            "正式最終分數：套用完整評分公式\n"
+            "Final Score"
             "mean / p50 / p25 / worst + 1.4x + bonus + AI Coach penalty"
         )
         axes[2].set_xticks(x)
@@ -887,19 +887,19 @@ class PoseProcessor:
         avg_formal_after = float(np.mean(formal_after))
         axes[1].text(
             0.5, -0.16,
-            f"平均：對齊前={avg_base_before:.2f}  對齊後={avg_base_after:.2f}  "
-            f"提升={avg_base_after-avg_base_before:+.2f}",
+            f"average before={avg_base_before:.2f}  after={avg_base_after:.2f}  "
+            f"Improvement={avg_base_after-avg_base_before:+.2f}",
             transform=axes[1].transAxes, ha="center", fontsize=9
         )
         axes[2].text(
             0.5, -0.16,
-            f"平均：對齊前={avg_formal_before:.2f}  對齊後={avg_formal_after:.2f}  "
-            f"提升={avg_formal_after-avg_formal_before:+.2f}",
+            f"average: before={avg_formal_before:.2f}  after={avg_formal_after:.2f}  "
+            f"Improvement={avg_formal_after-avg_formal_before:+.2f}",
             transform=axes[2].transAxes, ha="center", fontsize=9
         )
 
         fig.suptitle(
-            f"DTW 對齊效益：量化指標 → 原本分數 → 正式分數 [{tag}]",
+            f"DTW Alignment Effect: Quantitative Metrics → Base Score → Final Score [{tag}]",
             fontsize=15
         )
         plt.tight_layout(rect=[0, 0.02, 1, 0.97])
