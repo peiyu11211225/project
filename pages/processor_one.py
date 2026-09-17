@@ -1024,7 +1024,7 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
     用法（單一影片測試）：
         show_overall_score_proof_in_streamlit(
             proc,
-            [("這次分析", df_std_action, df_usr_action)]
+            [("Current Analysis", df_std_action, df_usr_action)]
         )
     """
     import streamlit as st

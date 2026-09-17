@@ -517,7 +517,7 @@ def show_comparison_dialog():
         proc,
         [
             (
-                "這次分析",
+                "Current Analysis",
                 df_std_action,
                 df_usr_action
             )
