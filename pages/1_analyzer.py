@@ -1322,8 +1322,7 @@ if uploaded_file is not None:
         st.markdown(
             """
             <div class="analysis-done">
-                ✅ 分析完成！以下結果已暫存在本次 Session，
-                查看詳細比對時不會重新執行 MediaPipe 分析。
+                ✅ 分析完成！以下結果已暫存在本次 Session。
             </div>
             """,
             unsafe_allow_html=True
