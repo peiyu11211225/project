@@ -228,6 +228,46 @@ def show_help_dialog():
     if st.button("關閉說明"):
         st.rerun()
 
+
+# =========================
+# 詳細比對結果 Dialog
+# =========================
+@st.dialog("🔍 詳細比對結果", width="large")
+def show_comparison_dialog(proc, df_std_action, df_usr_action):
+    """
+    彈出視窗顯示：
+    1. 動作對齊比對結果
+    2. 整體分數比對結果
+
+    只有使用者按下「查看詳細比對結果」後才會顯示。
+    """
+    st.subheader("📐 動作對齊比對")
+
+    show_alignment_proof_in_streamlit(
+        proc,
+        df_std_action,
+        df_usr_action
+    )
+
+    st.divider()
+
+    st.subheader("📊 整體分數比對")
+
+    show_overall_score_proof_in_streamlit(
+        proc,
+        [("這次分析", df_std_action, df_usr_action)]
+    )
+
+    st.divider()
+
+    if st.button(
+        "關閉",
+        use_container_width=True,
+        key="close_comparison_dialog"
+    ):
+        st.rerun()
+
+
 # Sidebar
 # =========================
 with st.sidebar:
@@ -581,16 +621,19 @@ if uploaded_file:
                             f"**{overall}**"
                         )
 
-                        show_alignment_proof_in_streamlit(
-                            proc,
-                            df_std_action,
-                            df_usr_action
-                        )
-
-                        show_overall_score_proof_in_streamlit(
-                            proc,
-                            [("這次分析", df_std_action, df_usr_action)]
-                        )
+                        # =========================
+                        # 🔍 詳細比對結果
+                        # =========================
+                        if st.button(
+                            "🔍 查看詳細比對結果",
+                            use_container_width=True,
+                            key="show_comparison"
+                        ):
+                            show_comparison_dialog(
+                                proc,
+                                df_std_action,
+                                df_usr_action
+                            )
 
                     else:
                         st.info("未產生回饋")

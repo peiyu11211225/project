@@ -946,7 +946,7 @@ def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr
 
     img_path = os.path.join(output_dir, f"{tag}_alignment_proof.png")
 
-    st.subheader("這次的對齊前後比較圖")
+    st.subheader("對齊前後比較圖")
     st.image(img_path, caption=f"對齊比較圖 - {tag}")
 
     with open(img_path, "rb") as f:
