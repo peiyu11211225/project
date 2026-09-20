@@ -199,10 +199,10 @@ class PoseProcessor:
 
         # ===== 反拍正式最終分數公式 =====
         final_score = (
-            mean * 0.6 +
+            mean * 0.5 +
             p50 * 0.2 +
             p25 * 0.1 +
-            worst * 0.15
+            worst * 0.1
         )
 
         final_score *= 1.1
