@@ -159,7 +159,7 @@ class PoseProcessor:
                 "penalty": 0,
             }
 
-        joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
+        joint_weights = {0: 1.0, 1: 1.0, 2: 1.2, 3: 2.0}
         path_scores = []
 
         for s, u in path:

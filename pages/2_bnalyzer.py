@@ -1385,59 +1385,59 @@ if uploaded_file is not None:
             # =================================================
             # 分數組成（反拍公式：0.6 / 0.2 / 0.1 / 0.15、*1.1）
             # =================================================
+            if False:
+                with st.expander(
+                    "📋 查看分數組成"
+                ):
 
-            with st.expander(
-                "📋 查看分數組成"
-            ):
+                    mean = stats[
+                        "mean_path_score"
+                    ]
 
-                mean = stats[
-                    "mean_path_score"
-                ]
+                    p50 = stats[
+                        "p50"
+                    ]
 
-                p50 = stats[
-                    "p50"
-                ]
+                    p25 = stats[
+                        "p25"
+                    ]
 
-                p25 = stats[
-                    "p25"
-                ]
+                    worst = stats[
+                        "min"
+                    ]
 
-                worst = stats[
-                    "min"
-                ]
+                    std = stats[
+                        "std"
+                    ]
 
-                std = stats[
-                    "std"
-                ]
-
-                penalty_stats = stats[
-                    "penalty"
-                ]
-
-
-                a = mean * 0.6
-
-                b = p50 * 0.2
-
-                c = p25 * 0.1
-
-                d = worst * 0.15
+                    penalty_stats = stats[
+                        "penalty"
+                    ]
 
 
-                base = (
-                    a + b + c + d
-                ) * 1.1
+                    a = mean * 0.6
+
+                    b = p50 * 0.2
+
+                    c = p25 * 0.1
+
+                    d = worst * 0.15
 
 
-                st.markdown(
-                    f"""
-                    | 項目 | 數值 | 註記 |
-                    |------|------|------|
-                    | 相似度總計 | `{base:.1f}` | 動作相似程度經專業加權後計算之基礎分 |
-                    | − AI教練懲罰 | `−{penalty:.1f}` | AI 教練動作誤差扣分 |
-                    | **最終分數** | **`{score:.1f}`** | 最終成績 |
-                    """
-                )
+                    base = (
+                        a + b + c + d
+                    ) * 1.1
+
+
+                    st.markdown(
+                        f"""
+                        | 項目 | 數值 | 註記 |
+                        |------|------|------|
+                        | 相似度總計 | `{base:.1f}` | 動作相似程度經專業加權後計算之基礎分 |
+                        | − AI教練懲罰 | `−{penalty:.1f}` | AI 教練動作誤差扣分 |
+                        | **最終分數** | **`{score:.1f}`** | 最終成績 |
+                        """
+                    )
 
 
             # =================================================
