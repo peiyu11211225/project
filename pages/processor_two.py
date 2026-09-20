@@ -849,7 +849,8 @@ class PoseProcessor:
         axes[2].set_ylabel("Final Score 0–100")
         axes[2].set_ylim(0, 100)
         axes[2].set_title(
-            "Final Score (Backhand) — mean/p50/p25/worst + 1.1x + bonus + AI Coach penalty"
+            "Final Score"
+            "mean / p50 / p25 / worst "
         )
         axes[2].set_xticks(x)
         axes[2].set_xticklabels(names, rotation=20, ha="right")
