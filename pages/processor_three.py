@@ -5,12 +5,13 @@ import numpy as np
 import pandas as pd
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
-from ai_coach_three import AICoach          # ← 改成正拍挑球版 AICoach（請確認實際檔名）
+from ai_coach_three import AICoach
 from pages.pose_utils import get_full_body_angles
+from ai_coach_three import AICoach
 
-# ▼▼▼ 畫圖用套件 ▼▼▼
+# ▼▼▼ 新增：畫圖用套件（原本檔案沒有，補上）▼▼▼
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # 純存檔用，不開視窗，避免雲端/無 GUI 環境報錯
 import matplotlib.pyplot as plt
 matplotlib.rcParams['axes.unicode_minus'] = False
 matplotlib.rcParams['font.sans-serif'] = [
@@ -33,7 +34,9 @@ class PoseProcessor:
     # 空間對齊（雲端穩健增強版）
     # =========================
     def _get_center_and_scale(self, df_row):
+        """計算單影格的中心點與骨架長度，並嚴格處理雲端資料異常"""
         try:
+            # 雲端資料常有 NaN 或 None，先取出並給予安全預設值
             def get_val(col, default=0.5):
                 val = df_row.get(col, default)
                 return default if pd.isna(val) or val == 0 else float(val)
@@ -45,19 +48,24 @@ class PoseProcessor:
             sh_l = np.array([get_val('11_x'), get_val('11_y')])
             sh_r = np.array([get_val('12_x'), get_val('12_y')])
 
+            # 計算肩膀到髖關節的軀幹長度作為 Scale 基準
             scale = (np.linalg.norm(sh_l - hip_l) + np.linalg.norm(sh_r - hip_r)) / 2
 
+            # 如果算出來的值異常或遺失，給予安全兜底
             if scale < 0.001 or np.isnan(scale):
                 return center, 0.2
             return center, scale
 
         except:
+            # 雲端防崩潰安全鎖
             return np.array([0.5, 0.5]), 0.2
 
     def align_to_user_space(self, coach_row, user_row, current_scale_ratio):
+        """將教練的骨架對齊到使用者的實際畫面空間（使用平滑後的縮放比）"""
         c_center, _ = self._get_center_and_scale(coach_row)
         u_center, _ = self._get_center_and_scale(user_row)
 
+        # 直接沿用外部傳入、經過全局濾波後的平滑穩定 scale_ratio
         out = coach_row.copy()
 
         for i in range(11, 33):
@@ -65,6 +73,7 @@ class PoseProcessor:
             if x_col in out and y_col in out:
                 val_x = out[x_col]
                 val_y = out[y_col]
+                # 排除 NaN 與無效偵測點
                 if pd.isna(val_x) or pd.isna(val_y):
                     continue
 
@@ -74,12 +83,14 @@ class PoseProcessor:
         return out
 
     # =========================
-    # 特徵提取
+    # 特徵提取 (加入強健數據清洗)
     # =========================
     def extract_features(self, df):
+        """提取特徵並清洗遺失值，防止 DTW 計算崩潰"""
         if df.empty:
             return np.zeros((1, 4))
 
+        # ⚠️ 強健修正：防止傳入的 DataFrame 帶有開頭或中間的 NaN 導致計算出 NaN 特徵
         df_clean = df.ffill().bfill()
         feats = []
 
@@ -112,6 +123,7 @@ class PoseProcessor:
                 body_center_x = (hip_l[0] + hip_r[0]) / 2.0
                 torso_width = np.linalg.norm(hip_l - hip_r) + 1e-6
 
+                # 手腕相對身體中心的水平偏移，正規化後用 tanh 壓縮範圍
                 direction = np.tanh((w[0] - body_center_x) / torso_width)
 
                 feats.append([
@@ -126,17 +138,27 @@ class PoseProcessor:
 
         return np.array(feats)
 
-    # =========================
-    # 正式最終評分公式（唯一來源）
-    # =========================
+    # =========================================================
+    # 正式最終評分公式（唯一來源，反拍專屬權重）
+    # =========================================================
     def _calculate_final_score_from_path(self, feat_std, feat_usr, path):
+        """
+        對指定的比對 path 套用「反拍正式分數」完整公式。
+
+        對齊前與對齊後共用這一套公式，唯一不同只有 path：
+        - 正式分數：DTW path
+        - 對齊前：逐幀硬比對 path [(0,0), (1,1), ...]
+
+        ⚠️ 注意：反拍的權重組合（0.6 / 0.2 / 0.1 / 0.15）與乘數（*1.1）
+        跟正拍（0.7 / 0.25 / 0.10 / 0.15、*1.4）不同，這裡完整保留
+        反拍原本的公式，不做任何調整。
+        """
         if len(feat_std) == 0 or len(feat_usr) == 0 or len(path) == 0:
             return 0.0, {
                 "feedback": "動作比對路徑無效",
                 "penalty": 0,
             }
 
-        # ===== 特徵權重（挑球是控制性擊球，非全力揮拍——見下方說明）=====
         joint_weights = {0: 1.0, 1: 1.5, 2: 1.2, 3: 2.0}
         path_scores = []
 
@@ -158,6 +180,7 @@ class PoseProcessor:
         path_scores = np.asarray(path_scores, dtype=float)
         n = len(path_scores)
 
+        # 動態截剪保護
         if n > 20:
             trim = int(n * 0.05)
             path_scores = path_scores[trim:n - trim]
@@ -174,14 +197,15 @@ class PoseProcessor:
         worst = float(np.min(path_scores))
         std = float(np.std(path_scores))
 
+        # ===== 反拍正式最終分數公式 =====
         final_score = (
-            mean * 0.7 +
-            p50 * 0.25 +
-            p25 * 0.10 +
+            mean * 0.6 +
+            p50 * 0.2 +
+            p25 * 0.1 +
             worst * 0.15
         )
 
-        final_score *= 1.4
+        final_score *= 1.1
 
         if mean > 85:
             final_score += 5
@@ -212,35 +236,39 @@ class PoseProcessor:
         }
 
     # =========================
-    # 相似度評分（正式 DTW 分數）
+    # 相似度評分 (正式 DTW 分數)
     # =========================
     def calculate_auto_similarity(self, df_std, df_usr):
+        """
+        正式評分：
+        先用 DTW 找到最佳 path，再套用反拍正式最終評分公式。
+
+        此函式回傳的 final_score，就是使用者畫面上看到的最終分數。
+        """
         if df_std.empty or df_usr.empty:
-            return 0.0, {
-                "feedback": "未偵測到有效動作數據",
-                "penalty": 0,
-            }
+            return 0.0, {"feedback": "未偵測到有效動作數據", "penalty": 0}
 
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
 
         _, path = fastdtw(feat_std, feat_usr, dist=euclidean)
 
-        return self._calculate_final_score_from_path(
-            feat_std,
-            feat_usr,
-            path,
-        )
+        return self._calculate_final_score_from_path(feat_std, feat_usr, path)
 
     # =========================================================
-    # 不對齊對照組：逐幀硬比對 + 完整正式評分公式
+    # 不對齊對照組：逐幀硬比對 + 完整反拍正式評分公式
     # =========================================================
     def calculate_naive_similarity(self, df_std, df_usr):
+        """
+        對齊前（Before Alignment）。
+
+        與 calculate_auto_similarity 共用完全相同的反拍公式，
+        唯一差別：不做 DTW，直接使用 (0,0), (1,1), (2,2)... 的逐幀硬比對。
+
+        因此紅色「對齊前」與綠色「對齊後」是真正 apples-to-apples 的比較。
+        """
         if df_std.empty or df_usr.empty:
-            return 0.0, {
-                "feedback": "未偵測到有效動作數據",
-                "penalty": 0,
-            }
+            return 0.0, {"feedback": "未偵測到有效動作數據", "penalty": 0}
 
         feat_std = self.extract_features(df_std)
         feat_usr = self.extract_features(df_usr)
@@ -248,11 +276,11 @@ class PoseProcessor:
         min_len = min(len(feat_std), len(feat_usr))
         path = [(i, i) for i in range(min_len)]
 
-        return self._calculate_final_score_from_path(
-            feat_std,
-            feat_usr,
-            path,
-        )
+        return self._calculate_final_score_from_path(feat_std, feat_usr, path)
+
+    # =========================================================
+    # ▲▲▲ 對齊前 / 對齊後共用同一套反拍正式評分公式 ▲▲▲
+    # =========================================================
 
     # =========================
     # 計算得分曲線
@@ -277,6 +305,7 @@ class PoseProcessor:
             scores[u_idx] += 100 * np.exp(-0.5 * d)
             counts[u_idx] += 1
 
+        # ⚠️ 使用 numpy.divide 的安全除法機制防止除以零
         curve = np.divide(
             scores,
             counts,
@@ -287,7 +316,7 @@ class PoseProcessor:
         return np.convolve(curve, np.ones(3) / 3, mode='same').tolist()
 
     # =========================
-    # 骨架疊加影片
+    # 骨架疊加影片 (🔥 雲端優化平滑版)
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
         if df_std.empty or df_usr.empty:
@@ -304,6 +333,7 @@ class PoseProcessor:
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        # 先寫入臨時檔案，最後透過 FFmpeg 編碼成無損標準格式
         tmp_path = output_path.replace(".mp4", "_tmp.mp4")
         out = cv2.VideoWriter(
             tmp_path,
@@ -312,6 +342,7 @@ class PoseProcessor:
             (w, h)
         )
 
+        # ─── 💡 全局 Scale 平滑化 ───
         raw_ratios = []
         for u_idx in range(len(df_usr)):
             if u_idx in u_to_s_map:
@@ -331,6 +362,7 @@ class PoseProcessor:
             smoothed_ratios[-half:] = raw_ratios[-half:]
         else:
             smoothed_ratios = raw_ratios
+        # ────────────────────────────
 
         f_idx = 0
 
@@ -343,14 +375,17 @@ class PoseProcessor:
 
             if 0 <= rel_idx < len(df_usr):
                 u_row = df_usr.iloc[rel_idx]
+                # 繪製使用者骨架 (紅色)
                 self.draw_skeleton(frame, u_row, (0, 0, 255), 2, w, h)
 
                 if rel_idx in u_to_s_map:
                     s_idx = min(u_to_s_map[rel_idx], len(df_std) - 1)
                     current_ratio = float(smoothed_ratios[rel_idx])
 
+                    # 將教練數據進行平移與平滑縮放對齊
                     c_row = self.align_to_user_space(df_std.iloc[s_idx], u_row, current_ratio)
 
+                    # 繪製教練骨架 (藍色)
                     self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
 
             out.write(frame)
@@ -359,6 +394,7 @@ class PoseProcessor:
         cap.release()
         out.release()
 
+        # ─── 🔥 H.264 影音轉碼 ───
         try:
             cmd = [
                 "ffmpeg", "-y",
@@ -409,10 +445,12 @@ class PoseProcessor:
             return 0, max(1, len(df)//2), max(2, len(df)-1)
 
         try:
+            # 填補極端缺失狀況
             df_filled = df.ffill().bfill()
             wx = df_filled['16_x'].values
             wy = df_filled['16_y'].values
 
+            # 計算手腕一階差分移動速度
             speed = np.hypot(
                 np.diff(wx, prepend=wx[0]),
                 np.diff(wy, prepend=wy[0])
@@ -434,13 +472,16 @@ class PoseProcessor:
                     end = i
                     break
 
+            # 前後緩衝幀配置
             start = max(0, start - 15)
             end = min(len(df_filled) - 1, end + 35)
 
+            # ⚠️ 核心防禦：如果揮拍區間過窄，進行硬性區間寬度保底
             if (end - start) < 45:
                 start = max(0, peak - 20)
                 end = min(len(df_filled) - 1, peak + 40)
 
+            # ⚠️ 強效防護：確保物理時間順序 start < peak < end，100% 避免除以零
             if peak <= start:
                 peak = start + 1
             if end <= peak:
@@ -449,6 +490,7 @@ class PoseProcessor:
             return int(start), int(peak), int(end)
 
         except:
+            # 萬一發生未知例外，執行全局安全兜底
             p = len(df) // 2
             s = max(0, p - 20)
             e = min(len(df) - 1, p + 40)
@@ -457,12 +499,18 @@ class PoseProcessor:
             return int(s), int(p), int(e)
 
     # =========================================================
-    # 對齊前 / 對齊後 量化比較圖
+    # ▼▼▼ 新增：對齊前 / 對齊後 量化比較圖（實驗數據佐證用）▼▼▼
     # =========================================================
     def plot_alignment_proof(self, df_std, df_usr,
                               output_dir="alignment_proof_output",
                               tag="sample",
                               feature_names=("Elbow Angle", "Wrist Speed", "Hit Height", "Swing Direction")):
+        """
+        用跟 calculate_auto_similarity 完全相同的特徵抽取方式與 fastdtw 呼叫，
+        畫出「對齊前 vs 對齊後」的量化比較圖，並存成 CSV 量化表。
+
+        只存到本機資料夾，不回傳前端，適合當作實驗數據 / 報告佐證。
+        """
         if df_std.empty or df_usr.empty:
             print("⚠️ 輸入資料為空，無法繪製對齊比較圖")
             return None
@@ -509,7 +557,7 @@ class PoseProcessor:
             )
 
             ax_after = axes[f_idx, 1]
-            ax_after.plot(aligned_std, label="Coach (before)", color="#1f77b4", linewidth=1.8)
+            ax_after.plot(aligned_std, label="Coach (after)", color="#1f77b4", linewidth=1.8)
             ax_after.plot(aligned_usr, label="User (after)", color="#ff7f0e", linewidth=1.8)
             ax_after.set_title(f"{name} - after (RMSE={rmse_after:.3f}, r={corr_after:.2f})")
             ax_after.legend(fontsize=8)
@@ -547,26 +595,19 @@ class PoseProcessor:
         print(metrics_df.to_string(index=False))
 
         return metrics_df
+    # =========================================================
+    # ▲▲▲ 新增區塊結束 ▲▲▲
+    # =========================================================
 
     # =========================================================
-    # 整體評分系統 對齊前 vs 對齊後 證明
+    # ▼▼▼ 新增：整體評分系統 對齊前 vs 對齊後 證明 ▼▼▼
     # =========================================================
-    def _weighted_score_series(self, feat_std, feat_usr, index_pairs, joint_weights):
-        scores = []
-        for s_idx, u_idx in index_pairs:
-            s_idx = min(s_idx, len(feat_std) - 1)
-            u_idx = min(u_idx, len(feat_usr) - 1)
-            diff = np.abs(feat_std[s_idx] - feat_usr[u_idx])
-            weighted_error = (
-                diff[0] * joint_weights[0] +
-                diff[1] * joint_weights[1] +
-                diff[2] * joint_weights[2] +
-                diff[3] * joint_weights[3]
-            )
-            scores.append(100 * np.exp(-2.0 * weighted_error))
-        return np.array(scores)
-
     def _calculate_original_score_without_formal_formula(self, feat_std, feat_usr, path):
+        """
+        原本的「基礎分數」：只計算每一個配對點的 similarity score，
+        再取平均；不套用反拍正式最終分數的 mean/p50/p25/worst 混合、
+        *1.1、bonus 與 AI Coach penalty。
+        """
         if len(feat_std) == 0 or len(feat_usr) == 0 or not path:
             return float("nan")
 
@@ -598,10 +639,23 @@ class PoseProcessor:
     def plot_overall_score_proof(self, sample_pairs,
                                   output_dir="alignment_proof_output",
                                   tag="overall_proof"):
+        """
+        產生一張三層實驗圖（反拍版）：
+
+        第一層：量化指標
+            - 四個特徵的 RMSE：對齊前 vs DTW 對齊後
+            - 四個特徵的 correlation：對齊前 vs DTW 對齊後
+
+        第二層：原本的基礎分數（未套正式最終評分公式）
+
+        第三層：反拍正式最終分數（完整公式，等於使用者畫面上看到的分數）
+
+        三層全部統一用「紅色＝對齊前 / 綠色＝對齊後」配色。
+        """
         os.makedirs(output_dir, exist_ok=True)
 
-        COLOR_BEFORE = "#d62728"
-        COLOR_AFTER = "#2ca02c"
+        COLOR_BEFORE = "#d62728"  # 紅色：對齊前
+        COLOR_AFTER = "#2ca02c"   # 綠色：對齊後
 
         names = []
         raw_before, raw_after = [], []
@@ -623,6 +677,7 @@ class PoseProcessor:
             naive_path = [(i, i) for i in range(min_len)]
             _, dtw_path = fastdtw(feat_std, feat_usr, dist=euclidean)
 
+            # ---------- 第一層：原始量化指標 ----------
             before_feature_rmse = []
             after_feature_rmse = []
             before_corr = []
@@ -657,6 +712,7 @@ class PoseProcessor:
             avg_corr_before = float(np.nanmean(before_corr)) if before_corr else float("nan")
             avg_corr_after = float(np.nanmean(after_corr)) if after_corr else float("nan")
 
+            # ---------- 第二層：原本基礎分數 ----------
             base_before = self._calculate_original_score_without_formal_formula(
                 feat_std, feat_usr, naive_path
             )
@@ -664,6 +720,7 @@ class PoseProcessor:
                 feat_std, feat_usr, dtw_path
             )
 
+            # ---------- 第三層：反拍正式最終分數 ----------
             formal_before_score, formal_before_info = self.calculate_naive_similarity(df_std, df_usr)
             formal_after_score, formal_after_info = self.calculate_auto_similarity(df_std, df_usr)
 
@@ -721,6 +778,9 @@ class PoseProcessor:
         width = 0.35
         fig, axes = plt.subplots(3, 1, figsize=(max(10, len(names) * 1.8), 16))
 
+        # =====================================================
+        # 第一層：量化指標（RMSE + correlation）— 紅／綠配色
+        # =====================================================
         mean_before_rmse = np.nanmean(np.asarray([m[0] for m in feature_metrics], dtype=float), axis=0)
         mean_after_rmse = np.nanmean(np.asarray([m[1] for m in feature_metrics], dtype=float), axis=0)
         mean_before_corr = np.nanmean(np.asarray([m[2] for m in feature_metrics], dtype=float), axis=0)
@@ -733,7 +793,7 @@ class PoseProcessor:
         axes[0].set_xticks(fx)
         axes[0].set_xticklabels(feature_names)
         axes[0].set_ylabel("RMSE (Lower is Better)")
-        axes[0].set_title("Quantitative Metrics: RMSE and Correlation")
+        axes[0].set_title("Quantitative Metrics: RMSE and Correlation (Backhand)")
         axes[0].legend(loc="upper left")
         axes[0].grid(axis="y", alpha=0.3)
 
@@ -756,6 +816,9 @@ class PoseProcessor:
             transform=axes[0].transAxes, ha="center", fontsize=9
         )
 
+        # =====================================================
+        # 第二層：原本基礎分數（未套正式最終公式）— 紅／綠配色
+        # =====================================================
         b3 = axes[1].bar(x - width/2, original_score_before, width,
                          label="before (No DTW)", color=COLOR_BEFORE)
         b4 = axes[1].bar(x + width/2, original_score_after, width,
@@ -763,8 +826,8 @@ class PoseProcessor:
         axes[1].set_ylabel("Base Similarity Score 0–100")
         axes[1].set_ylim(0, 100)
         axes[1].set_title(
-            "Base Similarity Score"
-            "per-path similarity score"
+            "Base Similarity Score (Backhand) — per-path similarity score, "
+            "not the formal final score"
         )
         axes[1].set_xticks(x)
         axes[1].set_xticklabels(names, rotation=20, ha="right")
@@ -776,6 +839,9 @@ class PoseProcessor:
                 axes[1].annotate(f"{h:.1f}", (bar.get_x()+bar.get_width()/2, h),
                                  xytext=(0, 3), textcoords="offset points", ha="center", fontsize=8)
 
+        # =====================================================
+        # 第三層：反拍正式最終分數 — 紅／綠配色
+        # =====================================================
         b5 = axes[2].bar(x - width/2, formal_before, width,
                          label="before (No DTW)", color=COLOR_BEFORE)
         b6 = axes[2].bar(x + width/2, formal_after, width,
@@ -783,8 +849,7 @@ class PoseProcessor:
         axes[2].set_ylabel("Final Score 0–100")
         axes[2].set_ylim(0, 100)
         axes[2].set_title(
-            "Final Score"
-            "mean / p50 / p25 / worst + 1.4x + bonus + AI Coach penalty"
+            "Final Score (Backhand) — mean/p50/p25/worst + 1.1x + bonus + AI Coach penalty"
         )
         axes[2].set_xticks(x)
         axes[2].set_xticklabels(names, rotation=20, ha="right")
@@ -814,7 +879,7 @@ class PoseProcessor:
         )
 
         fig.suptitle(
-            f"DTW Alignment Effect: Quantitative Metrics → Base Score → Final Score [{tag}]",
+            f"DTW Alignment Effect (Backhand): Quantitative Metrics → Base Score → Final Score [{tag}]",
             fontsize=15
         )
         plt.tight_layout(rect=[0, 0.02, 1, 0.97])
@@ -832,10 +897,20 @@ class PoseProcessor:
         print(metrics_df.to_string(index=False))
 
         return metrics_df
+    # =========================================================
+    # ▲▲▲ 新增區塊結束 ▲▲▲
+    # =========================================================
 
 
 def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr,
                                        output_dir="alignment_proof_output", tag=None):
+    """
+    在 Streamlit 頁面裡一行呼叫，就能：
+      1. 呼叫 processor.plot_alignment_proof() 產生圖檔 + CSV
+      2. 用 st.image() 把圖顯示在頁面上
+      3. 提供下載按鈕
+      4. 用 st.dataframe() 顯示量化指標表
+    """
     import streamlit as st
     from datetime import datetime
 
@@ -879,6 +954,7 @@ def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr
 
 
 def show_alignment_proof_history(output_dir="alignment_proof_output"):
+    """列出歷史所有對比圖，各自附下載按鈕"""
     import streamlit as st
 
     if not os.path.isdir(output_dir):
@@ -921,6 +997,15 @@ def show_alignment_proof_history(output_dir="alignment_proof_output"):
 
 def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pairs,
                                            output_dir="alignment_proof_output", tag=None):
+    """
+    在 Streamlit 頁面顯示「整體評分系統（反拍）：對齊前 vs 對齊後」的三層長條圖比較。
+
+    用法（單一影片測試）：
+        show_overall_score_proof_in_streamlit(
+            proc,
+            [("這次分析", df_std_action, df_usr_action)]
+        )
+    """
     import streamlit as st
     from datetime import datetime
 
@@ -935,7 +1020,7 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
 
     img_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.png")
 
-    st.subheader("📊 整體評分系統：未套公式 + 正式公式，對齊前 vs 對齊後")
+    st.subheader("📊 整體評分系統（反拍）：未套公式 + 正式公式，對齊前 vs 對齊後")
     st.image(img_path)
 
     st.dataframe(metrics_df)
