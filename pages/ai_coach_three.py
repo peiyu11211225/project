@@ -205,9 +205,9 @@ class AICoach:
                     return "準備手肘角度略嫌僵硬，放鬆前伸會更順手"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "準備時肩膀轉動過大，挑球不需要大幅轉體，建議以手臂前伸迎球為主"
+                    return "引拍位置與標準動作落差較大,建議跨步時球拍保持在身體前下方,手腕放鬆,不要過度後引"
                 else:
-                    return "準備肩部轉動稍多，挑球動作可以更小、更集中在手臂"
+                    return "引拍手腕位置略有偏差,保持拍頭在身體前方、高度適中即可"
 
         # ---------- impact ----------
         elif phase == "impact":
@@ -223,9 +223,9 @@ class AICoach:
                     return "擊球時手肘出力稍多，可以再放鬆一點讓手腕主導"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "擊球時肩膀過度參與發力，挑球應以手腕手感為主，肩膀盡量保持穩定"
+                    return "擊球點高度偏離標準,建議在網前身體前方擊球,手腕由下往上輕送,控制拍面向上挑出"
                 else:
-                    return "擊球時肩部稍微用力過多，嘗試讓手腕來完成托球動作"
+                    return "擊球點高度略有偏差,試著讓觸球點更靠前,擊球時手腕穩定"
 
         # ---------- follow ----------
         else:
@@ -241,9 +241,9 @@ class AICoach:
                     return "收拍手肘延伸稍多，可以再快一點收回準備位置"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "收拍時肩膀持續轉動過多，挑球後應盡快回正準備下一次來球"
+                    return "收拍時手腕位置與標準動作差異較大,建議挑球後順勢向上送出,隨即回到準備姿勢,不要停在原位"
                 else:
-                    return "收拍肩部跟轉略多，回正速度可以再快一點"
+                    return "收拍手腕位置略有偏差,挑出後放鬆回位即可"
 
         return None
 

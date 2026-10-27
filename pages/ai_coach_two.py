@@ -210,9 +210,9 @@ class AICoach:
                     return "引拍手肘高度略低，稍微抬高可增加蓄力空間"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "引拍時肩膀提前轉向擊球方向，建議延後轉肩，先以手肘手腕蓄力為主"
+                    return "引拍時手腕位置與標準動作落差較大,建議背對球網、手肘抬起,讓球拍自然垂在肩後再蓄力"
                 else:
-                    return "引拍肩部轉動時機稍早，可再延後一點讓手臂先完成蓄力"
+                    return "引拍手腕位置略有偏差,可對照教學影片微調持拍手的高度"
 
         # ---------- impact ----------
         elif phase == "impact":
@@ -228,9 +228,9 @@ class AICoach:
                     return "擊球時手肘伸展稍不完全，可嘗試多打開一點增加穿透力"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "擊球時肩膀提早停轉，建議保持肩部持續帶動手臂過球"
+                    return "擊球點高度偏離標準,建議在身體側後上方的最高點擊球,手臂充分伸直,用前臂旋轉帶動拍面"
                 else:
-                    return "擊球肩部帶動稍提早停止，持續轉肩至擊球後效果更佳"
+                    return "擊球點高度略有偏差,試著再往上打,在最高點觸球"
 
         # ---------- follow ----------
         else:
@@ -246,9 +246,9 @@ class AICoach:
                     return "收拍手肘回收稍快，試著讓手臂多延伸一點再收"
             elif joint == "12":  # shoulder
                 if level == "bad":
-                    return "收拍時肩部過早停止轉動，建議持續跟著動作轉至正面"
+                    return "收拍時手腕位置與標準動作差異較大,建議擊球後順勢向上帶出,再放鬆回位,不要急停"
                 else:
-                    return "收拍肩部跟轉略嫌不足，讓身體更完整地轉正會更流暢"
+                    return "收拍手腕位置略有偏差,讓手臂順著慣性自然帶出即可"
 
         return None
 
