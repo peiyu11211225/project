@@ -5,5 +5,3 @@ numpy
 pandas
 fastdtw
 scipy
-imageio
-imageio-ffmpeg

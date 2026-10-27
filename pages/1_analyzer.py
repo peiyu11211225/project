@@ -180,12 +180,12 @@ def show_help_dialog():
         )
         return
 
-    with open(output_path, "rb") as f:
-        video_bytes = f.read()
-
-    st.video(video_bytes)
-
-    video_base64 = base64.b64encode(video_bytes).decode()
+    with open(video_path, "rb") as f:
+            video_bytes = f.read()
+    
+    video_base64 = base64.b64encode(
+            video_bytes
+        ).decode()
 
     html_code = f"""
     <style>
