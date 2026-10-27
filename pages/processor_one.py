@@ -353,7 +353,7 @@ class PoseProcessor:
         tmp_path = output_path.replace(".mp4", "_tmp.mp4")
         out = cv2.VideoWriter(
             tmp_path,
-            cv2.VideoWriter_fourcc(*'mp4v'),
+            cv2.VideoWriter_fourcc(*'avc1'),
             fps,
             (w, h)
         )
