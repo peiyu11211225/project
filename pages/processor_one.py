@@ -3,6 +3,7 @@ import os
 import subprocess
 import numpy as np
 import pandas as pd
+import imageio  # ★ 新增：用來寫 H.264 影片（需要 requirements.txt 有 imageio、imageio-ffmpeg）
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from ai_coach_one import AICoach
@@ -334,6 +335,7 @@ class PoseProcessor:
 
     # =========================
     # 骨架疊加影片 (雲端優化平滑版)
+    # ★ 改用 imageio + libx264 寫影片，瀏覽器可直接播放
     # =========================
     def generate_auto_overlay(self, video_path, df_std, df_usr, start_idx, output_path):
         if df_std.empty or df_usr.empty:
@@ -350,12 +352,14 @@ class PoseProcessor:
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        tmp_path = output_path.replace(".mp4", "_tmp.mp4")
-        out = cv2.VideoWriter(
-            tmp_path,
-            cv2.VideoWriter_fourcc(*'avc1'),
-            fps,
-            (w, h)
+        # ★ 改這裡：原本是 cv2.VideoWriter(mp4v)，雲端沒有編碼器會寫不出來
+        out = imageio.get_writer(
+            output_path,
+            fps=fps,
+            codec="libx264",
+            pixelformat="yuv420p",
+            macro_block_size=2,
+            ffmpeg_params=["-movflags", "+faststart"],
         )
 
         raw_ratios = []
@@ -399,26 +403,13 @@ class PoseProcessor:
 
                     self.draw_skeleton(frame, c_row, (255, 0, 0), 3, w, h)
 
-            out.write(frame)
+            # ★ 改這裡：imageio 吃 RGB，OpenCV 是 BGR，一定要轉
+            out.append_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             f_idx += 1
 
         cap.release()
-        out.release()
-
-        try:
-            cmd = [
-                "ffmpeg", "-y",
-                "-i", tmp_path,
-                "-vcodec", "libx264",
-                "-pix_fmt", "yuv420p",
-                output_path
-            ]
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-        except:
-            if os.path.exists(tmp_path):
-                os.rename(tmp_path, output_path)
+        out.close()  # ★ 改這裡：imageio 用 close()，並且不再需要 ffmpeg 轉檔
+        return output_path
 
     # =========================
     # 繪製骨架基礎函數
@@ -947,16 +938,18 @@ def show_alignment_proof_in_streamlit(processor: "PoseProcessor", df_std, df_usr
     img_path = os.path.join(output_dir, f"{tag}_alignment_proof.png")
 
     st.subheader("對齊前後比較圖")
-    st.image(img_path, caption=f"對齊比較圖 - {tag}")
-
+    # ★ 改這裡：讀成 bytes 再顯示，避免雲端路徑問題
     with open(img_path, "rb") as f:
-        st.download_button(
-            "下載這張對齊比較圖 (PNG)",
-            f,
-            file_name=f"{tag}_alignment_proof.png",
-            mime="image/png",
-            key=f"download_img_{tag}",
-        )
+        img_bytes = f.read()
+    st.image(img_bytes, caption=f"對齊比較圖 - {tag}")
+
+    st.download_button(
+        "下載這張對齊比較圖 (PNG)",
+        img_bytes,
+        file_name=f"{tag}_alignment_proof.png",
+        mime="image/png",
+        key=f"download_img_{tag}",
+    )
 
     st.subheader("這次的量化指標表")
     st.dataframe(metrics_df)
@@ -999,7 +992,9 @@ def show_alignment_proof_history(output_dir="alignment_proof_output"):
         csv_path = os.path.join(output_dir, f"{tag}_alignment_metrics.csv")
 
         with st.expander(f"📊 {tag}"):
-            st.image(img_path)
+            # ★ 改這裡：讀成 bytes 再顯示
+            with open(img_path, "rb") as f:
+                st.image(f.read())
             col1, col2 = st.columns(2)
             with col1:
                 with open(img_path, "rb") as f:
@@ -1042,16 +1037,18 @@ def show_overall_score_proof_in_streamlit(processor: "PoseProcessor", sample_pai
     img_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.png")
 
     st.subheader("📊 整體評分系統：未套公式 + 正式公式，對齊前 vs 對齊後")
-    st.image(img_path)
+    # ★ 改這裡：讀成 bytes 再顯示
+    with open(img_path, "rb") as f:
+        img_bytes = f.read()
+    st.image(img_bytes)
 
     st.dataframe(metrics_df)
 
-    with open(img_path, "rb") as f:
-        st.download_button(
-            "下載比較圖 (PNG)", f,
-            file_name=f"{tag}_overall_score_comparison.png",
-            mime="image/png", key=f"overall_img_{tag}",
-        )
+    st.download_button(
+        "下載比較圖 (PNG)", img_bytes,
+        file_name=f"{tag}_overall_score_comparison.png",
+        mime="image/png", key=f"overall_img_{tag}",
+    )
 
     csv_path = os.path.join(output_dir, f"{tag}_overall_score_comparison.csv")
     with open(csv_path, "rb") as f:
