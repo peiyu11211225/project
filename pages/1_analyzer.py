@@ -1053,7 +1053,7 @@ def run_analysis(uploaded_file):
 
         distance, path = fastdtw(
             feat_std,
-            feat_usr
+            feat_usr,
             dist=euclidean
         )
 
