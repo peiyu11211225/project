@@ -11,6 +11,7 @@ import hashlib
 
 import streamlit.components.v1 as components
 from fastdtw import fastdtw
+from scipy.spatial.distance import euclidean
 
 # =========================================================
 # 1. 專案路徑
@@ -1052,7 +1053,8 @@ def run_analysis(uploaded_file):
 
         distance, path = fastdtw(
             feat_std,
-            feat_usr
+            feat_usr,
+            dist=euclidean
         )
 
 
