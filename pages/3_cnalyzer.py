@@ -315,7 +315,7 @@ def show_help_dialog():
                 <button
                     id="btn-hit"
                     class="action-btn"
-                    onclick="seekAndShow(4.2, 'hit')"
+                    onclick="seekAndShow(2., 'hit')"
                 >
                     💥 擊球瞬間
                 </button>
@@ -323,7 +323,7 @@ def show_help_dialog():
                 <button
                     id="btn-finish"
                     class="action-btn"
-                    onclick="seekAndShow(5.4, 'finish')"
+                    onclick="seekAndShow(4.9, 'finish')"
                 >
                     🏁 收拍結尾
                 </button>

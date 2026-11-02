@@ -307,7 +307,7 @@ def show_help_dialog():
                 <button
                     id="btn-prep"
                     class="action-btn"
-                    onclick="seekAndShow(1.0, 'prep')"
+                    onclick="seekAndShow(0.2, 'prep')"
                 >
                     🎾 引拍預備
                 </button>
@@ -315,7 +315,7 @@ def show_help_dialog():
                 <button
                     id="btn-hit"
                     class="action-btn"
-                    onclick="seekAndShow(4.2, 'hit')"
+                    onclick="seekAndShow(0.85, 'hit')"
                 >
                     💥 擊球瞬間
                 </button>
@@ -323,7 +323,7 @@ def show_help_dialog():
                 <button
                     id="btn-finish"
                     class="action-btn"
-                    onclick="seekAndShow(5.4, 'finish')"
+                    onclick="seekAndShow(2.1, 'finish')"
                 >
                     🏁 收拍結尾
                 </button>
