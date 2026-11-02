@@ -172,7 +172,7 @@ def show_help_dialog():
 
     video_path = os.path.join(
         current_dir,
-        "IMG_0284.mp4"
+        "IMG_0297.mp4"
     )
 
     if not os.path.exists(video_path):
