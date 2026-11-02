@@ -30,7 +30,7 @@ class AICoach:
         # 收拍放寬係數（收拍容易被遮住，誤判率高，故大幅放寬）
         self.relaxed_factor = {
             "prep": 1.1,
-            "impact": 1.3,
+            "impact": 1.25,
             "follow": 1.8   # 原本 1.35，調高放寬收拍判定
         }
 
@@ -225,7 +225,7 @@ class AICoach:
                 if level == "bad":
                     return "擊球時手肘彎曲角度過大、未充分伸展，導致力量無法完整傳遞"
                 else:
-                    return "擊球時手肘伸展稍不完全，可嘗試多打開一點增加穿透力"
+                    return "擊球時手肘伸展稍不完全，可嘗試多往前延伸一點增加穿透力"
             elif joint == "12":  # shoulder
                 if level == "bad":
                     return "擊球點高度過低,建議在身體前上方的最高點擊球,手臂充分伸展"
