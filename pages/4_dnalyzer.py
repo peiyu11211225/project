@@ -167,7 +167,7 @@ if "overlay_output_path" not in st.session_state:
 # 6. 使用說明 Dialog
 # =========================================================
 
-@st.dialog("📘 正拍高遠球教學", width="large")
+@st.dialog("📘 反拍挑球教學", width="large")
 def show_help_dialog():
 
     video_path = os.path.join(
