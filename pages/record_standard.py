@@ -101,11 +101,6 @@ class AICoach:
         """
         df = pd.DataFrame(records)
         
-        # 僅對數值欄位進行平滑化
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        # 使用 window=5 的滑動平均來過濾噪點
-        df[numeric_cols] = df[numeric_cols].rolling(window=5, min_periods=1, center=True).mean()
-
         df.to_csv(output_csv, index=False)
         print("-" * 30)
         print(f"✅ 教練標準數據已生成！")
