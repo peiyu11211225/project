@@ -189,13 +189,13 @@ class PoseProcessor:
 
         # ===== 正式最終分數完整公式 =====
         final_score = (
-            mean * 0.7 +
-            p50 * 0.25 +
+            mean * 0.6 +
+            p50 * 0.2 +
             p25 * 0.1 +
-            worst * 0.15
+            worst * 0.1
         )
 
-        final_score *= 1.4
+        final_score *= 1.5
 
         if mean > 85:
             final_score += 5
