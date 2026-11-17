@@ -195,7 +195,7 @@ class PoseProcessor:
             worst * 0.1
         )
 
-        final_score *= 1.5
+        final_score *= 1.7
 
         if mean > 85:
             final_score += 5
