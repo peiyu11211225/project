@@ -47,6 +47,7 @@ class AICoach:
                 # 僅處理指定區間
                 if start_frame <= frame_idx <= end_frame:
                     # 轉換圖片格式
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
                     timestamp_ms = int((frame_idx / fps) * 1000)
                     
@@ -99,12 +100,7 @@ class AICoach:
         內部方法：處理 DataFrame 平滑化並存檔
         """
         df = pd.DataFrame(records)
-        
-        # 僅對數值欄位進行平滑化
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        # 使用 window=5 的滑動平均來過濾噪點
-        df[numeric_cols] = df[numeric_cols].rolling(window=5, min_periods=1, center=True).mean()
-
+  
         df.to_csv(output_csv, index=False)
         print("-" * 30)
         print(f"✅ 教練標準數據已生成！")
