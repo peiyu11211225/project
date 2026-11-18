@@ -17,8 +17,8 @@ class AICoach:
         }
 
         # threshold
-        self.good_threshold = 0.22
-        self.bad_threshold = 0.24
+        self.good_threshold = 0.21
+        self.bad_threshold = 0.23
 
         # 教練扣分機制
         self.phase_penalty = {
