@@ -99,6 +99,10 @@ class AICoach:
         內部方法：處理 DataFrame 平滑化並存檔
         """
         df = pd.DataFrame(records)
+        numeric_cols = df.select_dtypes(include=[float, int]).columns
+        df[numeric_cols] = df[numeric_cols].rolling(
+            window=5, min_periods=1, center=True
+        ).mean()
         
         df.to_csv(output_csv, index=False)
         print("-" * 30)
