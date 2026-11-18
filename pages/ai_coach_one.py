@@ -29,8 +29,8 @@ class AICoach:
 
         # 收拍放寬係數（收拍容易被遮住，誤判率高，故大幅放寬）
         self.relaxed_factor = {
-            "prep": 1.1,
-            "impact": 1.25,
+            "prep": 1.25,
+            "impact": 1.3,
             "follow": 1.8   # 原本 1.35，調高放寬收拍判定
         }
 
