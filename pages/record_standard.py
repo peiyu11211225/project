@@ -47,6 +47,7 @@ class AICoach:
                 # 僅處理指定區間
                 if start_frame <= frame_idx <= end_frame:
                     # 轉換圖片格式
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
                     timestamp_ms = int((frame_idx / fps) * 1000)
                     
@@ -99,10 +100,7 @@ class AICoach:
         內部方法：處理 DataFrame 平滑化並存檔
         """
         df = pd.DataFrame(records)
-        numeric_cols = df.select_dtypes(include=[float, int]).columns
-        df[numeric_cols] = df[numeric_cols].rolling(
-            window=5, min_periods=1, center=True
-        ).mean()
+       
         
         df.to_csv(output_csv, index=False)
         print("-" * 30)
